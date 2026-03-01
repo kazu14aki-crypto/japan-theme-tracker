@@ -141,6 +141,56 @@ PLOT_CONFIG = {
     "staticPlot": True,
 }
 
+def make_bar_chart(labels, values, colors, height=520, left_margin=140):
+    """横向き棒グラフを作成する共通関数"""
+    # 数値をバーの内側に表示することで見切れを防ぐ
+    text_positions = []
+    text_colors = []
+    for v in values:
+        if abs(v) > 3:
+            # バーが十分長い場合は内側に表示
+            text_positions.append("inside")
+            text_colors.append("white")
+        else:
+            # バーが短い場合は外側に表示（右余白を確保）
+            text_positions.append("outside")
+            text_colors.append("white")
+
+    fig = go.Figure(go.Bar(
+        y=labels,
+        x=values,
+        orientation="h",
+        marker_color=colors,
+        text=[f"{v}%" for v in values],
+        textposition=text_positions,
+        textfont=dict(color=text_colors, size=11),
+        insidetextanchor="middle",
+    ))
+    fig.update_layout(
+        xaxis=dict(
+            title="騰落率（%）",
+            ticksuffix="%",
+            zeroline=True,
+            zerolinecolor="gray",
+            zerolinewidth=1,
+            # X軸の範囲を最大値より少し広めに設定して見切れを防ぐ
+            range=[
+                min(values) * 1.3 if min(values) < 0 else -2,
+                max(values) * 1.3 if max(values) > 0 else 2,
+            ],
+        ),
+        yaxis=dict(
+            title="",
+            autorange="reversed",
+        ),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white", size=11),
+        height=height,
+        margin=dict(t=30, b=50, l=left_margin, r=20),
+    )
+    return fig
+
 # ページ切り替え
 page = st.sidebar.radio("ページ", ["📊 テーマ一覧", "🔍 個別株詳細"])
 
@@ -212,32 +262,7 @@ if page == "📊 テーマ一覧":
 
     # 横向き棒グラフ
     st.subheader("📊 テーマ別騰落率ランキング")
-    fig = go.Figure(go.Bar(
-        y=labels,
-        x=values,
-        orientation="h",
-        marker_color=colors,
-        text=[f"{v}%" for v in values],
-        textposition="outside",
-    ))
-    fig.update_layout(
-        xaxis=dict(
-            title="騰落率（%）",
-            ticksuffix="%",
-            zeroline=True,
-            zerolinecolor="gray",
-            zerolinewidth=1,
-        ),
-        yaxis=dict(
-            title="",
-            autorange="reversed",
-        ),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white", size=12),
-        height=520,
-        margin=dict(t=40, b=40, l=150, r=120),
-    )
+    fig = make_bar_chart(labels, values, colors, height=520, left_margin=140)
     st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
 
     # テーマ一覧（表形式）
@@ -267,31 +292,7 @@ if page == "📊 テーマ一覧":
             s_values = [stocks[s]["change"] for s in s_labels]
             s_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in s_values]
 
-            fig2 = go.Figure(go.Bar(
-                y=s_labels,
-                x=s_values,
-                orientation="h",
-                marker_color=s_colors,
-                text=[f"{v}%" for v in s_values],
-                textposition="outside",
-            ))
-            fig2.update_layout(
-                xaxis=dict(
-                    title="騰落率（%）",
-                    ticksuffix="%",
-                    zeroline=True,
-                    zerolinecolor="gray",
-                ),
-                yaxis=dict(
-                    title="",
-                    autorange="reversed",
-                ),
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white", size=12),
-                height=300,
-                margin=dict(t=20, b=40, l=150, r=120),
-            )
+            fig2 = make_bar_chart(s_labels, s_values, s_colors, height=280, left_margin=130)
             st.plotly_chart(fig2, use_container_width=True, config=PLOT_CONFIG)
 
             for stock_name, data in stocks.items():
@@ -349,6 +350,7 @@ elif page == "🔍 個別株詳細":
             paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="white"),
             height=400,
+            margin=dict(t=30, b=50, l=70, r=20),
         )
         st.plotly_chart(fig3, use_container_width=True, config=PLOT_CONFIG)
 
@@ -368,6 +370,7 @@ elif page == "🔍 個別株詳細":
             paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="white"),
             height=300,
+            margin=dict(t=30, b=50, l=70, r=20),
         )
         st.plotly_chart(fig4, use_container_width=True, config=PLOT_CONFIG)
 
