@@ -20,13 +20,10 @@ div.stButton > button {
     height: 3em;
     font-size: 1em;
 }
-.stPlotlyChart {
-    overflow-x: auto;
-}
+.stPlotlyChart { overflow-x: auto; }
 @media (max-width: 640px) {
     h1 { font-size: 1.5em !important; }
     h2 { font-size: 1.2em !important; }
-    .stSelectbox { font-size: 1em; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -38,6 +35,8 @@ if "selected_ticker" not in st.session_state:
     st.session_state["selected_ticker"] = "8035.T"
 if "page" not in st.session_state:
     st.session_state["page"] = "テーマ一覧"
+if "favorites" not in st.session_state:
+    st.session_state["favorites"] = {}  # {"銘柄名": "ティッカー"}
 
 # 期間選択
 period_options = {
@@ -135,27 +134,22 @@ themes = {
     },
 }
 
-# グラフ共通設定（操作ボタン非表示・タッチ操作無効）
+# グラフ設定
 PLOT_CONFIG = {
     "displayModeBar": False,
     "staticPlot": True,
 }
 
 def make_bar_chart(labels, values, colors, height=520, left_margin=140):
-    """横向き棒グラフを作成する共通関数"""
-    # 数値をバーの内側に表示することで見切れを防ぐ
     text_positions = []
     text_colors = []
     for v in values:
         if abs(v) > 3:
-            # バーが十分長い場合は内側に表示
             text_positions.append("inside")
             text_colors.append("white")
         else:
-            # バーが短い場合は外側に表示（右余白を確保）
             text_positions.append("outside")
             text_colors.append("white")
-
     fig = go.Figure(go.Bar(
         y=labels,
         x=values,
@@ -173,16 +167,12 @@ def make_bar_chart(labels, values, colors, height=520, left_margin=140):
             zeroline=True,
             zerolinecolor="gray",
             zerolinewidth=1,
-            # X軸の範囲を最大値より少し広めに設定して見切れを防ぐ
             range=[
                 min(values) * 1.3 if min(values) < 0 else -2,
                 max(values) * 1.3 if max(values) > 0 else 2,
             ],
         ),
-        yaxis=dict(
-            title="",
-            autorange="reversed",
-        ),
+        yaxis=dict(title="", autorange="reversed"),
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white", size=11),
@@ -191,8 +181,17 @@ def make_bar_chart(labels, values, colors, height=520, left_margin=140):
     )
     return fig
 
-# ページ切り替え
-page = st.sidebar.radio("ページ", ["📊 テーマ一覧", "🔍 個別株詳細"])
+# ページ切り替え（お気に入りページを追加）
+page = st.sidebar.radio("ページ", [
+    "📊 テーマ一覧",
+    "⭐ お気に入り",
+    "🔍 個別株詳細",
+])
+
+# お気に入りの件数をサイドバーに表示
+fav_count = len(st.session_state["favorites"])
+if fav_count > 0:
+    st.sidebar.info(f"⭐ お気に入り登録中：{fav_count}銘柄")
 
 # =====================
 # テーマ一覧ページ
@@ -214,7 +213,6 @@ if page == "📊 テーマ一覧":
                     df = yf.Ticker(ticker).history(period="3mo")
                     if len(df) < 2:
                         continue
-
                     if period == "5d":
                         target_df = df.tail(5)
                     elif period == "1mo":
@@ -237,7 +235,6 @@ if page == "📊 テーマ一覧":
 
                     details[stock_name] = {
                         "change": change,
-                        "volume": int(recent_vol),
                         "volume_change": round((recent_vol - prev_vol) / prev_vol * 100, 1) if prev_vol > 0 else 0,
                         "ticker": ticker
                     }
@@ -254,13 +251,11 @@ if page == "📊 テーマ一覧":
                 })
                 theme_details[theme_name] = details
 
-    # 騰落率でソート
     theme_results.sort(key=lambda x: x["平均騰落率(%)"], reverse=True)
     labels = [r["テーマ"] for r in theme_results]
     values = [r["平均騰落率(%)"] for r in theme_results]
     colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in values]
 
-    # 横向き棒グラフ
     st.subheader("📊 テーマ別騰落率ランキング")
     fig = make_bar_chart(labels, values, colors, height=520, left_margin=140)
     st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
@@ -298,14 +293,116 @@ if page == "📊 テーマ一覧":
             for stock_name, data in stocks.items():
                 c = "🔴" if data["change"] > 0 else "🟢"
                 v = "📈" if data["volume_change"] > 0 else "📉"
-                col1, col2 = st.columns([3, 1])
+                is_fav = stock_name in st.session_state["favorites"]
+
+                col1, col2, col3 = st.columns([3, 1, 1])
                 with col1:
                     st.write(f"{c} **{stock_name}**　騰落率：{data['change']}%　{v} 出来高増減：{data['volume_change']}%")
                 with col2:
-                    if st.button("詳細チャート", key=stock_name):
+                    if st.button("詳細チャート", key=f"chart_{stock_name}"):
                         st.session_state["selected_stock"] = stock_name
                         st.session_state["selected_ticker"] = data["ticker"]
                         st.rerun()
+                with col3:
+                    if is_fav:
+                        if st.button("⭐ 解除", key=f"fav_{stock_name}"):
+                            del st.session_state["favorites"][stock_name]
+                            st.rerun()
+                    else:
+                        if st.button("☆ 登録", key=f"fav_{stock_name}"):
+                            st.session_state["favorites"][stock_name] = data["ticker"]
+                            st.rerun()
+
+# =====================
+# お気に入りページ
+# =====================
+elif page == "⭐ お気に入り":
+
+    st.subheader("⭐ お気に入り銘柄")
+
+    if len(st.session_state["favorites"]) == 0:
+        st.info("まだお気に入り登録がありません。テーマ一覧ページで「☆ 登録」ボタンを押して追加してください。")
+    else:
+        with st.spinner("データを取得中..."):
+            fav_results = []
+            for stock_name, ticker in st.session_state["favorites"].items():
+                try:
+                    df = yf.Ticker(ticker).history(period="3mo")
+                    if len(df) < 2:
+                        continue
+                    if period == "5d":
+                        target_df = df.tail(5)
+                    elif period == "1mo":
+                        target_df = df.tail(21)
+                    elif period == "3mo":
+                        target_df = df.tail(63)
+                    else:
+                        target_df = df
+
+                    start = target_df["Close"].iloc[0]
+                    end = target_df["Close"].iloc[-1]
+                    change = round((end - start) / start * 100, 2)
+
+                    half = len(target_df) // 2
+                    recent_vol = target_df["Volume"].tail(half).mean()
+                    prev_vol = target_df["Volume"].head(half).mean()
+                    vol_change = round((recent_vol - prev_vol) / prev_vol * 100, 1) if prev_vol > 0 else 0
+
+                    fav_results.append({
+                        "銘柄": stock_name,
+                        "ticker": ticker,
+                        "change": change,
+                        "vol_change": vol_change,
+                        "price": int(target_df["Close"].iloc[-1]),
+                    })
+                except:
+                    pass
+
+        # 騰落率でソート
+        fav_results.sort(key=lambda x: x["change"], reverse=True)
+
+        # お気に入りグラフ
+        fav_labels = [r["銘柄"] for r in fav_results]
+        fav_values = [r["change"] for r in fav_results]
+        fav_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in fav_values]
+
+        fig_fav = make_bar_chart(fav_labels, fav_values, fav_colors,
+                                  height=max(300, len(fav_results) * 50),
+                                  left_margin=130)
+        st.plotly_chart(fig_fav, use_container_width=True, config=PLOT_CONFIG)
+
+        # お気に入り一覧表
+        st.subheader("📋 お気に入り一覧")
+        table_data = []
+        for r in fav_results:
+            change_str = f"🔴 +{r['change']}%" if r["change"] > 0 else f"🟢 {r['change']}%"
+            vol_str = f"📈 +{r['vol_change']}%" if r["vol_change"] > 0 else f"📉 {r['vol_change']}%"
+            table_data.append({
+                "銘柄": r["銘柄"],
+                "現在株価": f"¥{r['price']:,}",
+                "騰落率": change_str,
+                "出来高増減": vol_str,
+            })
+        df_fav = pd.DataFrame(table_data).set_index("銘柄")
+        st.dataframe(df_fav, use_container_width=True)
+
+        # 個別ボタン
+        st.subheader("🔍 詳細・登録解除")
+        for r in fav_results:
+            c = "🔴" if r["change"] > 0 else "🟢"
+            v = "📈" if r["vol_change"] > 0 else "📉"
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.write(f"{c} **{r['銘柄']}**　{r['change']}%　{v} {r['vol_change']}%")
+            with col2:
+                if st.button("詳細チャート", key=f"fav_chart_{r['銘柄']}"):
+                    st.session_state["selected_stock"] = r["銘柄"]
+                    st.session_state["selected_ticker"] = r["ticker"]
+                    st.rerun()
+            with col3:
+                if st.button("⭐ 解除", key=f"fav_del_{r['銘柄']}"):
+                    del st.session_state["favorites"][r["銘柄"]]
+                    st.rerun()
 
 # =====================
 # 個別株詳細ページ
@@ -328,16 +425,24 @@ elif page == "🔍 個別株詳細":
 
     st.subheader(f"📈 {selected_name} 詳細チャート")
 
+    # お気に入りボタン
+    is_fav = selected_name in st.session_state["favorites"]
+    if is_fav:
+        if st.button("⭐ お気に入り解除"):
+            del st.session_state["favorites"][selected_name]
+            st.rerun()
+    else:
+        if st.button("☆ お気に入りに追加"):
+            st.session_state["favorites"][selected_name] = selected_ticker
+            st.rerun()
+
     with st.spinner("データ取得中..."):
         df = yf.Ticker(selected_ticker).history(period=period)
 
     if len(df) > 0:
-
-        # 株価チャート
         st.write("**株価推移**")
         fig3 = go.Figure(go.Scatter(
-            x=df.index,
-            y=df["Close"],
+            x=df.index, y=df["Close"],
             mode="lines",
             line=dict(color="#ff4b4b", width=2),
             fill="tozeroy",
@@ -354,13 +459,11 @@ elif page == "🔍 個別株詳細":
         )
         st.plotly_chart(fig3, use_container_width=True, config=PLOT_CONFIG)
 
-        # 出来高チャート
         st.write("**出来高推移**")
         vol_colors = ["#ff4b4b" if df["Close"].iloc[i] >= df["Close"].iloc[i-1]
                       else "#39d353" for i in range(len(df))]
         fig4 = go.Figure(go.Bar(
-            x=df.index,
-            y=df["Volume"],
+            x=df.index, y=df["Volume"],
             marker_color=vol_colors,
         ))
         fig4.update_layout(
@@ -374,7 +477,6 @@ elif page == "🔍 個別株詳細":
         )
         st.plotly_chart(fig4, use_container_width=True, config=PLOT_CONFIG)
 
-        # メトリクス
         half = len(df) // 2
         recent_vol = df["Volume"].tail(half).mean()
         prev_vol = df["Volume"].head(half).mean()
@@ -387,6 +489,5 @@ elif page == "🔍 個別株詳細":
         col1.metric("現在株価", f"¥{int(df['Close'].iloc[-1]):,}")
         col2.metric("騰落率", f"{price_change}%")
         col3.metric("出来高増減", f"{vol_change}%")
-
     else:
         st.error("データを取得できませんでした")
