@@ -1,10 +1,20 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import plotly.graph_objects as go
 
+st.set_page_config(page_title="日本株テーマトラッカー", layout="wide")
 st.title("🇯🇵 日本株テーマトラッカー")
 
+# session_stateの初期化
+if "selected_stock" not in st.session_state:
+    st.session_state["selected_stock"] = "東京エレクトロン"
+if "selected_ticker" not in st.session_state:
+    st.session_state["selected_ticker"] = "8035.T"
+if "page" not in st.session_state:
+    st.session_state["page"] = "テーマ一覧"
 
+# 期間選択
 period_options = {
     "1週間": "5d",
     "1ヶ月": "1mo",
@@ -13,6 +23,8 @@ period_options = {
 }
 selected_label = st.selectbox("📅 期間を選択", list(period_options.keys()))
 period = period_options[selected_label]
+
+# テーマと銘柄
 themes = {
     "半導体": {
         "東京エレクトロン": "8035.T",
@@ -98,7 +110,7 @@ themes = {
     },
 }
 
-
+# ページ切り替え
 page = st.sidebar.radio("ページ", ["📊 テーマ一覧", "🔍 個別株詳細"])
 
 if page == "📊 テーマ一覧":
@@ -118,8 +130,6 @@ if page == "📊 テーマ一覧":
                     df = yf.Ticker(ticker).history(period="3mo")
                     if len(df) < 2:
                         continue
-
-                    
                     if period == "5d":
                         target_df = df.tail(5)
                     elif period == "1mo":
@@ -134,7 +144,6 @@ if page == "📊 テーマ一覧":
                     change = round((end - start) / start * 100, 2)
                     changes.append(change)
 
-                    
                     half = len(target_df) // 2
                     recent_vol = target_df["Volume"].tail(half).mean()
                     prev_vol = target_df["Volume"].head(half).mean()
@@ -157,18 +166,36 @@ if page == "📊 テーマ一覧":
                     "テーマ": theme_name,
                     "平均騰落率(%)": avg,
                     "出来高増減(%)": vol_change,
-                    "合計出来高": int(total_volume)
                 })
                 theme_details[theme_name] = details
 
-    
+    # 騰落率でソート
     theme_results.sort(key=lambda x: x["平均騰落率(%)"], reverse=True)
+    labels = [r["テーマ"] for r in theme_results]
+    values = [r["平均騰落率(%)"] for r in theme_results]
+    colors = ["#ff4b4b" if v >= 0 else "#4b8bff" for v in values]
 
+    # Plotlyグラフ（テーマ別騰落率）
     st.subheader("📊 テーマ別騰落率ランキング")
-    df_chart = pd.DataFrame(theme_results).set_index("テーマ")[["平均騰落率(%)"]]
-    st.bar_chart(df_chart)
+    fig = go.Figure(go.Bar(
+        x=labels,
+        y=values,
+        marker_color=colors,
+        text=[f"{v}%" for v in values],
+        textposition="outside",
+    ))
+    fig.update_layout(
+        xaxis=dict(tickangle=0, title="テーマ"),
+        yaxis=dict(title="騰落率（%）", ticksuffix="%", zeroline=True, zerolinecolor="gray"),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white", size=13),
+        height=500,
+        margin=dict(t=40, b=80),
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
-    
+    # テーマ一覧
     st.subheader("📋 テーマ一覧")
     for rank, result in enumerate(theme_results, 1):
         change = result["平均騰落率(%)"]
@@ -181,12 +208,34 @@ if page == "📊 テーマ一覧":
             f"{vol_color} 出来高増減：{vol_change}%"
         )
 
-    
+    # テーマ別詳細
     st.subheader("🔍 テーマ別詳細（クリックで展開）")
     for result in theme_results:
         theme_name = result["テーマ"]
         stocks = theme_details.get(theme_name, {})
         with st.expander(f"{theme_name}　騰落率 {result['平均騰落率(%)']}%　出来高増減 {result['出来高増減(%)']}%"):
+            s_labels = list(stocks.keys())
+            s_values = [stocks[s]["change"] for s in s_labels]
+            s_colors = ["#ff4b4b" if v >= 0 else "#4b8bff" for v in s_values]
+
+            fig2 = go.Figure(go.Bar(
+                x=s_labels,
+                y=s_values,
+                marker_color=s_colors,
+                text=[f"{v}%" for v in s_values],
+                textposition="outside",
+            ))
+            fig2.update_layout(
+                xaxis=dict(tickangle=0),
+                yaxis=dict(title="騰落率（%）", ticksuffix="%", zeroline=True, zerolinecolor="gray"),
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="white", size=12),
+                height=350,
+                margin=dict(t=20, b=60),
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+
             for stock_name, data in stocks.items():
                 c = "🔴" if data["change"] > 0 else "🔵"
                 v = "📈" if data["volume_change"] > 0 else "📉"
@@ -197,12 +246,10 @@ if page == "📊 テーマ一覧":
                     if st.button("詳細チャート", key=stock_name):
                         st.session_state["selected_stock"] = stock_name
                         st.session_state["selected_ticker"] = data["ticker"]
-                        st.session_state["page"] = "個別株詳細"
                         st.rerun()
 
 elif page == "🔍 個別株詳細":
 
-    
     all_stocks = {}
     for stocks in themes.values():
         for name, ticker in stocks.items():
@@ -221,24 +268,47 @@ elif page == "🔍 個別株詳細":
         df = yf.Ticker(selected_ticker).history(period=period)
 
     if len(df) > 0:
-        
+        # 株価チャート（Plotly）
         st.write("**株価推移**")
-        st.line_chart(df["Close"])
+        fig3 = go.Figure(go.Scatter(
+            x=df.index, y=df["Close"],
+            mode="lines",
+            line=dict(color="#ff4b4b", width=2),
+            fill="tozeroy",
+            fillcolor="rgba(255,75,75,0.1)"
+        ))
+        fig3.update_layout(
+            xaxis=dict(title="日付"),
+            yaxis=dict(title="株価（円）", tickprefix="¥"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white"),
+            height=400,
+        )
+        st.plotly_chart(fig3, use_container_width=True)
 
-        
+        # 出来高チャート（Plotly）
         st.write("**出来高推移**")
-        st.bar_chart(df["Volume"])
+        fig4 = go.Figure(go.Bar(
+            x=df.index, y=df["Volume"],
+            marker_color="#4b8bff",
+        ))
+        fig4.update_layout(
+            xaxis=dict(title="日付"),
+            yaxis=dict(title="出来高"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white"),
+            height=300,
+        )
+        st.plotly_chart(fig4, use_container_width=True)
 
-        
+        # メトリクス
         half = len(df) // 2
         recent_vol = df["Volume"].tail(half).mean()
         prev_vol = df["Volume"].head(half).mean()
         vol_change = round((recent_vol - prev_vol) / prev_vol * 100, 1)
-        vol_icon = "📈" if vol_change > 0 else "📉"
-
-        
         price_change = round((df["Close"].iloc[-1] - df["Close"].iloc[0]) / df["Close"].iloc[0] * 100, 2)
-        price_icon = "🔴" if price_change > 0 else "🔵"
 
         col1, col2, col3 = st.columns(3)
         col1.metric("現在株価", f"¥{int(df['Close'].iloc[-1]):,}")
@@ -246,4 +316,3 @@ elif page == "🔍 個別株詳細":
         col3.metric("出来高増減", f"{vol_change}%")
     else:
         st.error("データを取得できませんでした")
-
