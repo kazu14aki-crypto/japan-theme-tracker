@@ -1,3 +1,18 @@
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+
+st.title("🇯🇵 日本株テーマトラッカー")
+
+
+period_options = {
+    "1週間": "5d",
+    "1ヶ月": "1mo",
+    "3ヶ月": "3mo",
+    "6ヶ月": "6mo",
+}
+selected_label = st.selectbox("📅 期間を選択", list(period_options.keys()))
+period = period_options[selected_label]
 themes = {
     "半導体": {
         "東京エレクトロン": "8035.T",
