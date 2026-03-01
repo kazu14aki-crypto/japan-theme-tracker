@@ -70,9 +70,9 @@ themes = {
         "デンソー":     "6902.T",
     },
     "ゲーム・エンタメ": {
-        "任天堂":       "7974.T",
-        "ソニー":       "6758.T",
-        "カプコン":     "9697.T",
+        "任天堂":         "7974.T",
+        "ソニー":         "6758.T",
+        "カプコン":       "9697.T",
         "バンダイナムコ": "7832.T",
     },
     "銀行・金融": {
@@ -92,10 +92,10 @@ themes = {
         "東急不動産HD": "3289.T",
     },
     "医薬品・バイオ": {
-        "武田薬品":     "4502.T",
+        "武田薬品":       "4502.T",
         "アステラス製薬": "4503.T",
-        "第一三共":     "4568.T",
-        "中外製薬":     "4519.T",
+        "第一三共":       "4568.T",
+        "中外製薬":       "4519.T",
     },
     "食品・飲料": {
         "味の素":     "2802.T",
@@ -109,14 +109,14 @@ themes = {
         "MonotaRO":              "3064.T",
     },
     "通信": {
-        "NTT":        "9432.T",
+        "NTT":          "9432.T",
         "ソフトバンク": "9434.T",
         "楽天グループ": "4755.T",
     },
     "鉄鋼・素材": {
-        "日本製鉄":         "5401.T",
+        "日本製鉄":            "5401.T",
         "JFEホールディングス": "5411.T",
-        "神戸製鋼所":       "5406.T",
+        "神戸製鋼所":          "5406.T",
     },
     "化学": {
         "信越化学工業": "4063.T",
@@ -133,6 +133,12 @@ themes = {
         "商船三井": "9104.T",
         "ヤマトHD": "9064.T",
     },
+}
+
+# グラフ共通設定（操作ボタン非表示・タッチ操作無効）
+PLOT_CONFIG = {
+    "displayModeBar": False,
+    "staticPlot": True,
 }
 
 # ページ切り替え
@@ -202,11 +208,9 @@ if page == "📊 テーマ一覧":
     theme_results.sort(key=lambda x: x["平均騰落率(%)"], reverse=True)
     labels = [r["テーマ"] for r in theme_results]
     values = [r["平均騰落率(%)"] for r in theme_results]
-
-    # プラス：赤　マイナス：黄緑
     colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in values]
 
-    # 横向き棒グラフ（テーマ別騰落率）
+    # 横向き棒グラフ
     st.subheader("📊 テーマ別騰落率ランキング")
     fig = go.Figure(go.Bar(
         y=labels,
@@ -232,22 +236,26 @@ if page == "📊 テーマ一覧":
         paper_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white", size=12),
         height=520,
-        margin=dict(t=40, b=40, l=150, r=80),
+        margin=dict(t=40, b=40, l=150, r=120),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
 
-    # テーマ一覧
+    # テーマ一覧（表形式）
     st.subheader("📋 テーマ一覧")
+    table_data = []
     for rank, result in enumerate(theme_results, 1):
         change = result["平均騰落率(%)"]
         vol_change = result["出来高増減(%)"]
-        change_color = "🔴" if change > 0 else "🟢"
-        vol_color = "📈" if vol_change > 0 else "📉"
-        st.write(
-            f"{rank}位　{change_color}　**{result['テーマ']}**　"
-            f"騰落率：{change}%　｜　"
-            f"{vol_color} 出来高増減：{vol_change}%"
-        )
+        change_str = f"🔴 +{change}%" if change > 0 else f"🟢 {change}%"
+        vol_str = f"📈 +{vol_change}%" if vol_change > 0 else f"📉 {vol_change}%"
+        table_data.append({
+            "順位": f"{rank}位",
+            "テーマ": result["テーマ"],
+            "騰落率": change_str,
+            "出来高増減": vol_str,
+        })
+    df_table = pd.DataFrame(table_data).set_index("順位")
+    st.dataframe(df_table, use_container_width=True)
 
     # テーマ別詳細
     st.subheader("🔍 テーマ別詳細（クリックで展開）")
@@ -257,8 +265,6 @@ if page == "📊 テーマ一覧":
         with st.expander(f"{theme_name}　騰落率 {result['平均騰落率(%)']}%　出来高増減 {result['出来高増減(%)']}%"):
             s_labels = list(stocks.keys())
             s_values = [stocks[s]["change"] for s in s_labels]
-
-            # プラス：赤　マイナス：黄緑
             s_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in s_values]
 
             fig2 = go.Figure(go.Bar(
@@ -284,9 +290,9 @@ if page == "📊 テーマ一覧":
                 paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="white", size=12),
                 height=300,
-                margin=dict(t=20, b=40, l=150, r=80),
+                margin=dict(t=20, b=40, l=150, r=120),
             )
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, use_container_width=True, config=PLOT_CONFIG)
 
             for stock_name, data in stocks.items():
                 c = "🔴" if data["change"] > 0 else "🟢"
@@ -344,7 +350,7 @@ elif page == "🔍 個別株詳細":
             font=dict(color="white"),
             height=400,
         )
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig3, use_container_width=True, config=PLOT_CONFIG)
 
         # 出来高チャート
         st.write("**出来高推移**")
@@ -363,7 +369,7 @@ elif page == "🔍 個別株詳細":
             font=dict(color="white"),
             height=300,
         )
-        st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig4, use_container_width=True, config=PLOT_CONFIG)
 
         # メトリクス
         half = len(df) // 2
