@@ -63,84 +63,169 @@ PLOT_CONFIG = {"displayModeBar": False, "staticPlot": True}
 period_options = {"1週間":"5d","1ヶ月":"1mo","3ヶ月":"3mo","6ヶ月":"6mo"}
 
 # =====================
+# キャッシュ付きデータ取得（ここが高速化のポイント）
+# TTL=3600 → 1時間キャッシュ保持
+# =====================
+@st.cache_data(ttl=3600)
+def fetch_stock_data(ticker: str, period: str = "3mo") -> pd.DataFrame:
+    """株価データをキャッシュ付きで取得する"""
+    try:
+        df = yf.Ticker(ticker).history(period=period)
+        return df
+    except:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=3600)
+def fetch_stock_data_1y(ticker: str) -> pd.DataFrame:
+    """1年分の株価データをキャッシュ付きで取得する"""
+    try:
+        df = yf.Ticker(ticker).history(period="1y")
+        return df
+    except:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=21600)
+def fetch_fundamentals(ticker: str) -> dict:
+    """財務指標をキャッシュ付きで取得する（6時間キャッシュ）"""
+    try:
+        info = yf.Ticker(ticker).info
+        return {
+            "PER": round(info.get("trailingPE"), 1) if info.get("trailingPE") else None,
+            "PBR": round(info.get("priceToBook"), 1) if info.get("priceToBook") else None,
+            "時価総額": format_large_number(info.get("marketCap")),
+            "売上高": format_large_number(info.get("totalRevenue")),
+            "EPS": round(info.get("trailingEps"), 1) if info.get("trailingEps") else None,
+        }
+    except:
+        return {"PER":None,"PBR":None,"時価総額":"N/A","売上高":"N/A","EPS":None}
+
+@st.cache_data(ttl=3600)
+def fetch_all_theme_data(period: str) -> tuple:
+    """全テーマデータを一括キャッシュ取得"""
+    theme_results = []
+    theme_details = {}
+
+    for theme_name, stocks in themes.items():
+        changes, details = [], {}
+        total_vol = prev_total_vol = 0
+
+        for stock_name, ticker in stocks.items():
+            try:
+                df = fetch_stock_data(ticker, "3mo")
+                if len(df) < 2: continue
+                target_df = get_target_df(df, period)
+                change = calc_change(target_df)
+                if change is None: continue
+                changes.append(change)
+
+                half = len(target_df) // 2
+                rv = target_df["Volume"].tail(half).mean()
+                pv = target_df["Volume"].head(half).mean()
+                total_vol += rv
+                prev_total_vol += pv
+
+                day_change = round((df["Close"].iloc[-1]-df["Close"].iloc[-2])/df["Close"].iloc[-2]*100,2) if len(df)>=2 else None
+                rsi_val = round(calc_rsi(df["Close"]).iloc[-1], 1)
+                sharpe = calc_sharpe(target_df["Close"])
+
+                df_1y = fetch_stock_data_1y(ticker)
+                w52_high = round(df_1y["High"].max(), 0) if len(df_1y)>0 else None
+                w52_low = round(df_1y["Low"].min(), 0) if len(df_1y)>0 else None
+
+                details[stock_name] = {
+                    "change": change, "day_change": day_change,
+                    "volume_change": round((rv-pv)/pv*100,1) if pv>0 else 0,
+                    "ticker": ticker, "rsi": rsi_val, "sharpe": sharpe,
+                    "52w_high": w52_high, "52w_low": w52_low,
+                    "price": round(df["Close"].iloc[-1], 0),
+                    "volume": int(rv),
+                    "trade_value": int(rv * df["Close"].iloc[-1]),
+                }
+            except:
+                pass
+
+        if changes:
+            avg = round(sum(changes)/len(changes), 2)
+            vol_chg = round((total_vol-prev_total_vol)/prev_total_vol*100,1) if prev_total_vol>0 else 0
+            theme_results.append({
+                "テーマ": theme_name,
+                "平均騰落率(%)": avg,
+                "出来高増減(%)": vol_chg,
+                "合計出来高": int(total_vol),
+                "合計売買代金": int(total_vol * sum(
+                    fetch_stock_data(t, "3mo")["Close"].iloc[-1]
+                    for t in stocks.values()
+                    if len(fetch_stock_data(t, "3mo")) > 0
+                ) / max(len(stocks), 1)),
+            })
+            theme_details[theme_name] = details
+
+    theme_results.sort(key=lambda x: x["平均騰落率(%)"], reverse=True)
+    return theme_results, theme_details
+
+# =====================
 # Google Sheets連携
 # =====================
 def get_gsheet():
-    """Google Sheetsに接続する"""
     try:
         creds = Credentials.from_service_account_info(
             st.secrets["gcp_service_account"],
-            scopes=[
-                "https://spreadsheets.google.com/feeds",
-                "https://www.googleapis.com/auth/drive",
-            ],
+            scopes=["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"],
         )
         client = gspread.authorize(creds)
-        spreadsheet = client.open_by_key(st.secrets["SPREADSHEET_ID"])
-        return spreadsheet
+        return client.open_by_key(st.secrets["SPREADSHEET_ID"])
     except Exception as e:
         st.error(f"Google Sheets接続エラー：{e}")
         return None
 
 def save_theme_history(theme_results):
-    """テーマ騰落率をGoogle Sheetsに保存する"""
     try:
         spreadsheet = get_gsheet()
-        if spreadsheet is None:
-            return False
-
-        # 「履歴」シートを取得または作成
+        if spreadsheet is None: return False
         try:
             sheet = spreadsheet.worksheet("履歴")
         except gspread.WorksheetNotFound:
             sheet = spreadsheet.add_worksheet(title="履歴", rows=10000, cols=20)
-            # ヘッダーを追加
             headers = ["日時"] + [r["テーマ"] for r in theme_results]
             sheet.append_row(headers)
 
-        # 今日の日付
-        today = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-        # 既存データを確認（今日すでに記録済みか）
-        existing = sheet.col_values(1)
         today_date = datetime.now().strftime("%Y-%m-%d")
-        already_saved = any(today_date in str(d) for d in existing)
+        existing = sheet.col_values(1)
+        if any(today_date in str(d) for d in existing):
+            return False
 
-        if not already_saved:
-            row = [today] + [r["平均騰落率(%)"] for r in theme_results]
-            sheet.append_row(row)
-            return True
-        return False
+        row = [datetime.now().strftime("%Y-%m-%d %H:%M")] + [r["平均騰落率(%)"] for r in theme_results]
+        sheet.append_row(row)
+        return True
     except Exception as e:
-        st.warning(f"履歴の保存に失敗しました：{e}")
+        st.warning(f"履歴の保存に失敗：{e}")
         return False
 
-def load_theme_history():
-    """Google Sheetsから履歴を読み込む"""
+@st.cache_data(ttl=600)
+def load_theme_history() -> pd.DataFrame:
     try:
-        spreadsheet = get_gsheet()
-        if spreadsheet is None:
-            return None
-
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"],
+        )
+        client = gspread.authorize(creds)
+        spreadsheet = client.open_by_key(st.secrets["SPREADSHEET_ID"])
         try:
             sheet = spreadsheet.worksheet("履歴")
-        except gspread.WorksheetNotFound:
-            return None
+        except:
+            return pd.DataFrame()
 
         data = sheet.get_all_values()
-        if len(data) < 2:
-            return None
+        if len(data) < 2: return pd.DataFrame()
 
         headers = data[0]
-        rows = data[1:]
-        df = pd.DataFrame(rows, columns=headers)
+        df = pd.DataFrame(data[1:], columns=headers)
         df["日時"] = pd.to_datetime(df["日時"])
         for col in headers[1:]:
             df[col] = pd.to_numeric(df[col], errors="coerce")
         return df
-    except Exception as e:
-        st.warning(f"履歴の読み込みに失敗しました：{e}")
-        return None
+    except:
+        return pd.DataFrame()
 
 # =====================
 # ユーティリティ関数
@@ -186,19 +271,6 @@ def format_large_number(n):
     if n >= 1e12: return f"{n/1e12:.1f}兆円"
     elif n >= 1e8: return f"{n/1e8:.0f}億円"
     return f"{n:,.0f}円"
-
-def get_fundamentals(ticker):
-    try:
-        info = yf.Ticker(ticker).info
-        return {
-            "PER": round(info.get("trailingPE"), 1) if info.get("trailingPE") else None,
-            "PBR": round(info.get("priceToBook"), 1) if info.get("priceToBook") else None,
-            "時価総額": format_large_number(info.get("marketCap")),
-            "売上高": format_large_number(info.get("totalRevenue")),
-            "EPS": round(info.get("trailingEps"), 1) if info.get("trailingEps") else None,
-        }
-    except:
-        return {"PER":None,"PBR":None,"時価総額":"N/A","売上高":"N/A","EPS":None}
 
 def make_bar_chart(labels, values, colors, height=520, left_margin=140):
     text_positions = ["inside" if abs(v) > 3 else "outside" for v in values]
@@ -269,6 +341,12 @@ fav_count = len(st.session_state["favorites"])
 if fav_count > 0:
     st.sidebar.info(f"⭐ お気に入り：{fav_count}銘柄")
 
+# キャッシュリセットボタン（サイドバー）
+if st.sidebar.button("🔄 データを最新に更新"):
+    st.cache_data.clear()
+    st.rerun()
+st.sidebar.caption("※データは1時間キャッシュされます")
+
 now = datetime.now().strftime("%Y年%m月%d日 %H:%M")
 
 # =====================
@@ -276,79 +354,44 @@ now = datetime.now().strftime("%Y年%m月%d日 %H:%M")
 # =====================
 if page == "📊 テーマ一覧":
     st.caption(f"🕐 最終更新：{now}")
+
     selected_label = st.selectbox("📅 期間を選択", list(period_options.keys()))
     period = period_options[selected_label]
 
-    with st.spinner("株価データを取得中..."):
-        theme_results = []
-        theme_details = {}
-
-        for theme_name, stocks in themes.items():
-            changes, details = [], {}
-            total_vol = prev_total_vol = 0
-
-            for stock_name, ticker in stocks.items():
-                try:
-                    df = yf.Ticker(ticker).history(period="3mo")
-                    if len(df) < 2: continue
-                    target_df = get_target_df(df, period)
-                    change = calc_change(target_df)
-                    if change is None: continue
-                    changes.append(change)
-
-                    half = len(target_df) // 2
-                    rv = target_df["Volume"].tail(half).mean()
-                    pv = target_df["Volume"].head(half).mean()
-                    total_vol += rv; prev_total_vol += pv
-
-                    day_change = round((df["Close"].iloc[-1]-df["Close"].iloc[-2])/df["Close"].iloc[-2]*100,2) if len(df)>=2 else None
-                    rsi_val = round(calc_rsi(df["Close"]).iloc[-1], 1)
-                    sharpe = calc_sharpe(target_df["Close"])
-                    df_52w = yf.Ticker(ticker).history(period="1y")
-                    w52_high = round(df_52w["High"].max(), 0) if len(df_52w)>0 else None
-                    w52_low = round(df_52w["Low"].min(), 0) if len(df_52w)>0 else None
-
-                    details[stock_name] = {
-                        "change": change, "day_change": day_change,
-                        "volume_change": round((rv-pv)/pv*100,1) if pv>0 else 0,
-                        "ticker": ticker, "rsi": rsi_val, "sharpe": sharpe,
-                        "52w_high": w52_high, "52w_low": w52_low,
-                        "price": round(df["Close"].iloc[-1], 0),
-                    }
-                except: pass
-
-            if changes:
-                avg = round(sum(changes)/len(changes), 2)
-                vol_chg = round((total_vol-prev_total_vol)/prev_total_vol*100,1) if prev_total_vol>0 else 0
-                theme_results.append({"テーマ":theme_name,"平均騰落率(%)":avg,"出来高増減(%)":vol_chg})
-                theme_details[theme_name] = details
-
-    theme_results.sort(key=lambda x: x["平均騰落率(%)"], reverse=True)
+    with st.spinner("データを取得中...（キャッシュ済みの場合は高速）"):
+        theme_results, theme_details = fetch_all_theme_data(period)
 
     # Google Sheetsに履歴を自動保存
     saved = save_theme_history(theme_results)
     if saved:
         st.success("📊 本日のテーマ騰落率を履歴に保存しました！")
 
+    # ランキンググラフ
     labels = [r["テーマ"] for r in theme_results]
     values = [r["平均騰落率(%)"] for r in theme_results]
     colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in values]
 
     st.subheader("📊 テーマ別騰落率ランキング")
-    st.plotly_chart(make_bar_chart(labels, values, colors, 520, 140), use_container_width=True, config=PLOT_CONFIG)
+    st.plotly_chart(make_bar_chart(labels, values, colors, 520, 140),
+                    use_container_width=True, config=PLOT_CONFIG)
 
+    # テーマ一覧表
     st.subheader("📋 テーマ一覧")
     table_data = []
     for rank, r in enumerate(theme_results, 1):
         c, v = r["平均騰落率(%)"], r["出来高増減(%)"]
-        table_data.append({"順位":f"{rank}位","テーマ":r["テーマ"],
-                           "騰落率":f"🔴 +{c}%" if c>0 else f"🟢 {c}%",
-                           "出来高増減":f"📈 +{v}%" if v>0 else f"📉 {v}%"})
+        table_data.append({
+            "順位": f"{rank}位",
+            "テーマ": r["テーマ"],
+            "騰落率": f"🔴 +{c}%" if c>0 else f"🟢 {c}%",
+            "出来高増減": f"📈 +{v}%" if v>0 else f"📉 {v}%",
+        })
     df_table = pd.DataFrame(table_data).set_index("順位")
     st.dataframe(df_table, use_container_width=True)
     st.download_button("📥 CSVダウンロード", df_table.to_csv(encoding="utf-8-sig"),
                        f"テーマ一覧_{now}.csv", "text/csv")
 
+    # テーマ別詳細
     st.subheader("🔍 テーマ別詳細（クリックで展開）")
     for result in theme_results:
         theme_name = result["テーマ"]
@@ -360,6 +403,7 @@ if page == "📊 テーマ一覧":
             st.plotly_chart(make_bar_chart(s_labels, s_values, s_colors, 280, 130),
                             use_container_width=True, config=PLOT_CONFIG)
 
+            # 銘柄詳細テーブル
             stock_table = []
             for sn, d in stocks.items():
                 rsi = d.get("rsi")
@@ -367,13 +411,14 @@ if page == "📊 テーマ一覧":
                 day_c = d.get("day_change")
                 stock_table.append({
                     "銘柄": sn,
-                    "現在株価": f"¥{int(d['price']):,}",
+                    "株価": f"¥{int(d['price']):,}",
                     "前日比": f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
-                    "期間騰落率": f"🔴 +{d['change']}%" if d["change"]>0 else f"🟢 {d['change']}%",
+                    "騰落率": f"🔴 +{d['change']}%" if d["change"]>0 else f"🟢 {d['change']}%",
+                    "出来高増減": f"📈 +{d['volume_change']}%" if d["volume_change"]>0 else f"📉 {d['volume_change']}%",
                     "RSI": f"{rsi} {rsi_alert}" if rsi else "N/A",
-                    "シャープレシオ": f"{d['sharpe']}" if d["sharpe"] else "N/A",
-                    "52週高値": f"¥{int(d['52w_high']):,}" if d["52w_high"] else "N/A",
-                    "52週安値": f"¥{int(d['52w_low']):,}" if d["52w_low"] else "N/A",
+                    "シャープ": f"{d['sharpe']}" if d["sharpe"] else "N/A",
+                    "52W高値": f"¥{int(d['52w_high']):,}" if d["52w_high"] else "N/A",
+                    "52W安値": f"¥{int(d['52w_low']):,}" if d["52w_low"] else "N/A",
                 })
             df_stock = pd.DataFrame(stock_table).set_index("銘柄")
             st.dataframe(df_stock, use_container_width=True)
@@ -399,30 +444,25 @@ if page == "📊 テーマ一覧":
                             st.session_state["favorites"][sn] = d["ticker"]; st.rerun()
 
 # =====================
-# 📈 騰落推移ページ（新機能）
+# 騰落推移
 # =====================
 elif page == "📈 騰落推移":
     st.subheader("📈 テーマ別騰落率の推移")
     st.caption(f"🕐 最終更新：{now}")
-    st.info("テーマ一覧ページを開くたびに自動で記録されます。毎日確認することで推移が積み上がっていきます。")
+    st.info("テーマ一覧ページを開くたびに自動記録されます。毎日確認することで推移が積み上がります。")
 
     with st.spinner("履歴データを読み込み中..."):
         df_hist = load_theme_history()
 
     if df_hist is None or len(df_hist) < 2:
-        st.warning("まだ履歴データが少ないです。テーマ一覧ページを数日間確認すると推移グラフが表示されます。")
-        st.info("💡 今すぐ「📊 テーマ一覧」ページを開くと本日分が記録されます。")
+        st.warning("まだ履歴データが少ないです。「📊 テーマ一覧」ページを開くと本日分が記録されます。")
     else:
-        # 表示するテーマを選択
         all_theme_cols = [c for c in df_hist.columns if c != "日時"]
         selected_themes = st.multiselect(
-            "表示するテーマを選択（複数選択OK）",
-            all_theme_cols,
-            default=all_theme_cols[:5],
+            "表示するテーマを選択", all_theme_cols, default=all_theme_cols[:5]
         )
 
         if selected_themes:
-            # 折れ線グラフ
             fig_hist = go.Figure()
             for theme in selected_themes:
                 if theme in df_hist.columns:
@@ -442,16 +482,10 @@ elif page == "📈 騰落推移":
             )
             st.plotly_chart(fig_hist, use_container_width=True, config=PLOT_CONFIG)
 
-            # 最新ランキング
-            st.subheader("📋 直近の記録一覧")
+            st.subheader("📋 直近の記録")
             st.dataframe(df_hist.set_index("日時").tail(10), use_container_width=True)
-
-            # CSVダウンロード
-            st.download_button(
-                "📥 全履歴CSVダウンロード",
-                df_hist.to_csv(index=False, encoding="utf-8-sig"),
-                f"テーマ騰落推移_{now}.csv", "text/csv"
-            )
+            st.download_button("📥 全履歴CSV", df_hist.to_csv(index=False, encoding="utf-8-sig"),
+                               f"テーマ騰落推移_{now}.csv", "text/csv")
 
 # =====================
 # ヒートマップ
@@ -459,9 +493,10 @@ elif page == "📈 騰落推移":
 elif page == "🔥 ヒートマップ":
     st.subheader("🔥 騰落率ヒートマップ（テーマ × 期間）")
     st.caption(f"🕐 最終更新：{now}")
-    st.info("全テーマ×全期間のデータを取得するため約1〜2分かかります")
+    st.info("キャッシュ済みの場合は高速で表示されます")
 
-    with st.spinner("全期間データを取得中..."):
+    @st.cache_data(ttl=3600)
+    def fetch_heatmap_data():
         heatmap_periods = {"1週間":"5d","1ヶ月":"1mo","3ヶ月":"3mo","6ヶ月":"6mo"}
         heatmap_data = {}
         for theme_name, stocks in themes.items():
@@ -470,12 +505,16 @@ elif page == "🔥 ヒートマップ":
                 changes = []
                 for _, ticker in stocks.items():
                     try:
-                        df = yf.Ticker(ticker).history(period="6mo")
+                        df = fetch_stock_data(ticker, "6mo")
                         if len(df) < 2: continue
                         c = calc_change(get_target_df(df, pc))
                         if c is not None: changes.append(c)
                     except: pass
                 heatmap_data[theme_name][pl] = round(sum(changes)/len(changes),2) if changes else None
+        return heatmap_data
+
+    with st.spinner("データ取得中..."):
+        heatmap_data = fetch_heatmap_data()
 
     df_heat = pd.DataFrame(heatmap_data).T[["1週間","1ヶ月","3ヶ月","6ヶ月"]]
     z = df_heat.values.tolist()
@@ -511,12 +550,11 @@ elif page == "📉 テーマ比較":
     else:
         with st.spinner("データ取得中..."):
             fig_comp = go.Figure()
-            comp_data = {}
             for theme_name in selected_themes:
                 all_changes = {}
                 for _, ticker in themes[theme_name].items():
                     try:
-                        df = yf.Ticker(ticker).history(period="6mo")
+                        df = fetch_stock_data(ticker, "6mo")
                         if len(df) < 2: continue
                         target_df = get_target_df(df, period)
                         cum = (target_df["Close"] / target_df["Close"].iloc[0] - 1) * 100
@@ -528,21 +566,20 @@ elif page == "📉 テーマ比較":
                 if all_changes:
                     dates = sorted(all_changes.keys())
                     avgs = [round(sum(all_changes[d])/len(all_changes[d]),2) for d in dates]
-                    comp_data[theme_name] = {"dates":dates,"returns":avgs}
                     fig_comp.add_trace(go.Scatter(x=dates, y=avgs, mode="lines", name=theme_name, line=dict(width=2)))
 
-            fig_comp.add_hline(y=0, line_dash="dash", line_color="gray")
-            fig_comp.update_layout(
-                xaxis=dict(title="日付"), yaxis=dict(title="累積リターン（%）", ticksuffix="%"),
-                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white", size=12), height=500,
-                legend=dict(orientation="h", y=1.1),
-                margin=dict(t=60, b=50, l=70, r=20),
-            )
-            st.plotly_chart(fig_comp, use_container_width=True, config=PLOT_CONFIG)
+        fig_comp.add_hline(y=0, line_dash="dash", line_color="gray")
+        fig_comp.update_layout(
+            xaxis=dict(title="日付"), yaxis=dict(title="累積リターン（%）", ticksuffix="%"),
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white", size=12), height=500,
+            legend=dict(orientation="h", y=1.1),
+            margin=dict(t=60, b=50, l=70, r=20),
+        )
+        st.plotly_chart(fig_comp, use_container_width=True, config=PLOT_CONFIG)
 
 # =====================
-# マクロ比較
+# マクロ比較（TOPIX修正済み）
 # =====================
 elif page == "🌍 マクロ比較":
     st.subheader("🌍 マクロ指標との比較")
@@ -552,13 +589,14 @@ elif page == "🌍 マクロ比較":
     selected_stock_name = st.selectbox("比較する銘柄を選択", list(all_stocks.keys()))
     selected_ticker = all_stocks[selected_stock_name]
 
-    macro_items = {"日経平均":"^N225","S&P500":"^GSPC","ドル円":"JPY=X","TOPIX":"^TOPX"}
-    colors_macro = {"日経平均":"#ffd700","S&P500":"#4b8bff","ドル円":"#ff9900","TOPIX":"#cc44ff"}
+    # TOPIX → 1306.T（TOPIX連動ETF「NEXT FUNDS TOPIX ETF」）
+    macro_items = {"日経平均":"^N225","S&P500":"^GSPC","ドル円":"JPY=X","TOPIX(ETF)":"1306.T"}
+    colors_macro = {"日経平均":"#ffd700","S&P500":"#4b8bff","ドル円":"#ff9900","TOPIX(ETF)":"#cc44ff"}
 
     with st.spinner("データ取得中..."):
         fig_macro = go.Figure()
         try:
-            df_sel = yf.Ticker(selected_ticker).history(period="6mo")
+            df_sel = fetch_stock_data(selected_ticker, "6mo")
             target = get_target_df(df_sel, period)
             cum = (target["Close"] / target["Close"].iloc[0] - 1) * 100
             fig_macro.add_trace(go.Scatter(x=target.index, y=cum, mode="lines",
@@ -567,7 +605,7 @@ elif page == "🌍 マクロ比較":
 
         for name, ticker in macro_items.items():
             try:
-                df_m = yf.Ticker(ticker).history(period="6mo")
+                df_m = fetch_stock_data(ticker, "6mo")
                 target_m = get_target_df(df_m, period)
                 cum_m = (target_m["Close"] / target_m["Close"].iloc[0] - 1) * 100
                 fig_macro.add_trace(go.Scatter(x=target_m.index, y=cum_m, mode="lines",
@@ -583,7 +621,7 @@ elif page == "🌍 マクロ比較":
         margin=dict(t=60, b=50, l=70, r=20),
     )
     st.plotly_chart(fig_macro, use_container_width=True, config=PLOT_CONFIG)
-    st.caption("🔴 選択銘柄　🟡 日経平均　🔵 S&P500　🟠 ドル円　🟣 TOPIX（点線）")
+    st.caption("🔴 選択銘柄　🟡 日経平均　🔵 S&P500　🟠 ドル円　🟣 TOPIX ETF（点線）")
 
 # =====================
 # 銘柄検索
@@ -610,17 +648,16 @@ elif page == "🔎 銘柄検索":
             results = []
             for sn, info in matched.items():
                 try:
-                    df = yf.Ticker(info["ticker"]).history(period="3mo")
+                    df = fetch_stock_data(info["ticker"], "3mo")
                     if len(df) < 2: continue
                     target_df = get_target_df(df, period)
                     change = calc_change(target_df)
-                    vol_change = calc_vol_change(target_df)
                     rsi_val = round(calc_rsi(df["Close"]).iloc[-1], 1)
                     price = int(target_df["Close"].iloc[-1])
                     day_c = round((df["Close"].iloc[-1]-df["Close"].iloc[-2])/df["Close"].iloc[-2]*100,2) if len(df)>=2 else None
                     results.append({
-                        "銘柄":sn,"テーマ":info["theme"],
-                        "現在株価":f"¥{price:,}",
+                        "銘柄":sn, "テーマ":info["theme"],
+                        "株価":f"¥{price:,}",
                         "前日比":f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
                         "騰落率":f"🔴 +{change}%" if change and change>0 else f"🟢 {change}%",
                         "RSI":f"{rsi_val}",
@@ -629,10 +666,9 @@ elif page == "🔎 銘柄検索":
                 except: pass
 
         if results:
-            df_search = pd.DataFrame(results)
-            df_display = df_search.drop(columns=["ticker"]).set_index("銘柄")
-            st.dataframe(df_display, use_container_width=True)
-            st.download_button("📥 検索結果CSV", df_display.to_csv(encoding="utf-8-sig"),
+            df_search = pd.DataFrame(results).drop(columns=["ticker"]).set_index("銘柄")
+            st.dataframe(df_search, use_container_width=True)
+            st.download_button("📥 検索結果CSV", df_search.to_csv(encoding="utf-8-sig"),
                                f"銘柄検索_{now}.csv", "text/csv")
             for r in results:
                 is_fav = r["銘柄"] in st.session_state["favorites"]
@@ -667,17 +703,16 @@ elif page == "⭐ お気に入り":
             fav_results = []
             for sn, ticker in st.session_state["favorites"].items():
                 try:
-                    df = yf.Ticker(ticker).history(period="3mo")
+                    df = fetch_stock_data(ticker, "3mo")
                     if len(df) < 2: continue
                     target_df = get_target_df(df, period)
                     change = calc_change(target_df)
-                    vol_change = calc_vol_change(target_df)
                     rsi_val = round(calc_rsi(df["Close"]).iloc[-1], 1)
                     sharpe = calc_sharpe(target_df["Close"])
                     price = int(target_df["Close"].iloc[-1])
                     day_c = round((df["Close"].iloc[-1]-df["Close"].iloc[-2])/df["Close"].iloc[-2]*100,2) if len(df)>=2 else None
                     fav_results.append({
-                        "銘柄":sn,"ticker":ticker,"change":change,"vol_change":vol_change,
+                        "銘柄":sn,"ticker":ticker,"change":change,
                         "price":price,"rsi":rsi_val,"sharpe":sharpe,"day_change":day_c,
                     })
                 except: pass
@@ -695,11 +730,11 @@ elif page == "⭐ お気に入り":
             rsi_alert = "⚠️買" if rsi and rsi>70 else "⚠️売" if rsi and rsi<30 else "✅"
             day_c = r.get("day_change")
             table_data.append({
-                "銘柄":r["銘柄"], "現在株価":f"¥{r['price']:,}",
+                "銘柄":r["銘柄"], "株価":f"¥{r['price']:,}",
                 "前日比":f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
-                "期間騰落率":f"🔴 +{r['change']}%" if r["change"]>0 else f"🟢 {r['change']}%",
+                "騰落率":f"🔴 +{r['change']}%" if r["change"]>0 else f"🟢 {r['change']}%",
                 "RSI":f"{rsi} {rsi_alert}" if rsi else "N/A",
-                "シャープレシオ":f"{r['sharpe']}" if r["sharpe"] else "N/A",
+                "シャープ":f"{r['sharpe']}" if r["sharpe"] else "N/A",
             })
         df_fav = pd.DataFrame(table_data).set_index("銘柄")
         st.dataframe(df_fav, use_container_width=True)
@@ -735,15 +770,17 @@ elif page == "🔍 個別株詳細":
     st.subheader(f"📈 {selected_name}")
 
     is_fav = selected_name in st.session_state["favorites"]
-    if is_fav:
-        if st.button("⭐ お気に入り解除"):
-            del st.session_state["favorites"][selected_name]; st.rerun()
-    else:
-        if st.button("☆ お気に入りに追加"):
-            st.session_state["favorites"][selected_name] = selected_ticker; st.rerun()
+    col_fav1, col_fav2 = st.columns([1,5])
+    with col_fav1:
+        if is_fav:
+            if st.button("⭐ 解除"):
+                del st.session_state["favorites"][selected_name]; st.rerun()
+        else:
+            if st.button("☆ 登録"):
+                st.session_state["favorites"][selected_name] = selected_ticker; st.rerun()
 
     with st.spinner("データ取得中..."):
-        df = yf.Ticker(selected_ticker).history(period="1y")
+        df = fetch_stock_data_1y(selected_ticker)
 
     if len(df) > 0:
         display_df = get_target_df(df, period)
@@ -754,76 +791,87 @@ elif page == "🔍 個別株詳細":
         w52_low = round(df["Low"].min(), 0)
         price_pos = round((last_price-w52_low)/(w52_high-w52_low)*100,1) if w52_high!=w52_low else None
 
-        col1,col2,col3,col4 = st.columns(4)
-        col1.metric("現在株価", f"¥{last_price:,}")
+        # コンパクトな指標表示
+        col1,col2,col3,col4,col5,col6 = st.columns(6)
+        col1.metric("株価", f"¥{last_price:,}")
         col2.metric("前日比", f"{day_c}%" if day_c else "N/A")
-        col3.metric("期間騰落率", f"{price_change}%")
-        col4.metric("52週レンジ位置", f"{price_pos}%" if price_pos else "N/A",
-                    "高値圏⚠️" if price_pos and price_pos>80 else "安値圏✅" if price_pos and price_pos<20 else "中間帯")
+        col3.metric("騰落率", f"{price_change}%")
+        col4.metric("52W高値", f"¥{int(w52_high):,}")
+        col5.metric("52W安値", f"¥{int(w52_low):,}")
+        col6.metric("レンジ位置", f"{price_pos}%" if price_pos else "N/A",
+                    "高値圏⚠️" if price_pos and price_pos>80 else "安値圏✅" if price_pos and price_pos<20 else "中間")
 
-        with st.expander("💼 財務指標を表示"):
-            with st.spinner("財務データ取得中..."):
-                f = get_fundamentals(selected_ticker)
-            col1,col2,col3,col4,col5 = st.columns(5)
-            col1.metric("PER", f"{f['PER']}倍" if f["PER"] else "N/A")
-            col2.metric("PBR", f"{f['PBR']}倍" if f["PBR"] else "N/A")
-            col3.metric("時価総額", f["時価総額"])
-            col4.metric("売上高", f["売上高"])
-            col5.metric("EPS", f"{f['EPS']}円" if f["EPS"] else "N/A")
+        # 財務指標（コンパクト表形式）
+        with st.spinner("財務データ取得中..."):
+            f = fetch_fundamentals(selected_ticker)
+        fund_df = pd.DataFrame([{
+            "PER": f"{f['PER']}倍" if f["PER"] else "N/A",
+            "PBR": f"{f['PBR']}倍" if f["PBR"] else "N/A",
+            "時価総額": f["時価総額"],
+            "売上高": f["売上高"],
+            "EPS": f"{f['EPS']}円" if f["EPS"] else "N/A",
+        }])
+        st.dataframe(fund_df, use_container_width=True, hide_index=True)
 
+        # チャート設定
         col_a, col_b = st.columns(2)
-        with col_a: chart_type = st.radio("チャート種類", ["ローソク足","折れ線"], horizontal=True)
+        with col_a: chart_type = st.radio("チャート", ["ローソク足","折れ線"], horizontal=True)
         with col_b: show_ma = st.checkbox("移動平均線（25日・75日）", value=True)
 
         st.plotly_chart(make_price_chart(df, chart_type, show_ma), use_container_width=True, config=PLOT_CONFIG)
 
+        # 出来高（コンパクト）
         vol_colors = ["#ff4b4b" if display_df["Close"].iloc[i]>=display_df["Close"].iloc[i-1]
                       else "#39d353" for i in range(len(display_df))]
         fig_vol = go.Figure(go.Bar(x=display_df.index, y=display_df["Volume"], marker_color=vol_colors))
         fig_vol.update_layout(
             xaxis=dict(title="日付"), yaxis=dict(title="出来高"),
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white"), height=200,
-            margin=dict(t=10, b=40, l=70, r=20),
+            font=dict(color="white"), height=180,
+            margin=dict(t=5, b=30, l=70, r=20),
         )
         st.plotly_chart(fig_vol, use_container_width=True, config=PLOT_CONFIG)
 
+        # テクニカル指標（コンパクト表形式）
         if len(df) >= 30:
             close = df["Close"]
-            rsi = calc_rsi(close)
+            rsi_series = calc_rsi(close)
             macd, sig_line, hist = calc_macd(close)
             sharpe = calc_sharpe(display_df["Close"])
-            rsi_val = round(rsi.iloc[-1], 1)
+            rsi_val = round(rsi_series.iloc[-1], 1)
+            macd_val = round(macd.iloc[-1], 2)
 
-            with st.expander("📈 テクニカル指標を表示"):
-                col1,col2,col3 = st.columns(3)
-                col1.metric("RSI", f"{rsi_val}", "買われすぎ⚠️" if rsi_val>70 else "売られすぎ⚠️" if rsi_val<30 else "中立✅")
-                col2.metric("MACD", f"{round(macd.iloc[-1],2)}", "強気📈" if hist.iloc[-1]>0 else "弱気📉")
-                col3.metric("シャープレシオ", f"{sharpe}" if sharpe else "N/A")
+            tech_df = pd.DataFrame([{
+                "RSI": f"{rsi_val}　{'⚠️買われすぎ' if rsi_val>70 else '⚠️売られすぎ' if rsi_val<30 else '✅中立'}",
+                "MACD": f"{macd_val}　{'📈強気' if hist.iloc[-1]>0 else '📉弱気'}",
+                "シャープレシオ": f"{sharpe}　{'✅良好' if sharpe and sharpe>1 else '⚠️要注意' if sharpe and sharpe<0 else '普通'}" if sharpe else "N/A",
+            }])
+            st.dataframe(tech_df, use_container_width=True, hide_index=True)
 
-                fig_rsi = go.Figure()
-                fig_rsi.add_trace(go.Scatter(x=df.index, y=rsi, mode="lines",
-                                              line=dict(color="#ff4b4b", width=2), name="RSI"))
-                fig_rsi.add_hline(y=70, line_dash="dash", line_color="orange")
-                fig_rsi.add_hline(y=30, line_dash="dash", line_color="#39d353")
-                fig_rsi.update_layout(yaxis=dict(title="RSI", range=[0,100]),
-                                       plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                                       font=dict(color="white"), height=200,
-                                       margin=dict(t=10,b=30,l=60,r=20))
-                st.plotly_chart(fig_rsi, use_container_width=True, config=PLOT_CONFIG)
+            # RSI・MACDチャート
+            fig_rsi = go.Figure()
+            fig_rsi.add_trace(go.Scatter(x=df.index, y=rsi_series, mode="lines",
+                                          line=dict(color="#ff4b4b", width=2), name="RSI"))
+            fig_rsi.add_hline(y=70, line_dash="dash", line_color="orange")
+            fig_rsi.add_hline(y=30, line_dash="dash", line_color="#39d353")
+            fig_rsi.update_layout(yaxis=dict(title="RSI", range=[0,100]),
+                                   plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                                   font=dict(color="white"), height=180,
+                                   margin=dict(t=5,b=25,l=50,r=10))
+            st.plotly_chart(fig_rsi, use_container_width=True, config=PLOT_CONFIG)
 
-                hist_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in hist]
-                fig_macd = go.Figure()
-                fig_macd.add_trace(go.Scatter(x=df.index, y=macd, mode="lines",
-                                               line=dict(color="#ff4b4b", width=2), name="MACD"))
-                fig_macd.add_trace(go.Scatter(x=df.index, y=sig_line, mode="lines",
-                                               line=dict(color="#4b8bff", width=2), name="シグナル"))
-                fig_macd.add_trace(go.Bar(x=df.index, y=hist, marker_color=hist_colors, opacity=0.6, name="ヒスト"))
-                fig_macd.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                                        font=dict(color="white"), height=200,
-                                        legend=dict(orientation="h", y=1.2),
-                                        margin=dict(t=20,b=30,l=60,r=20))
-                st.plotly_chart(fig_macd, use_container_width=True, config=PLOT_CONFIG)
+            hist_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in hist]
+            fig_macd = go.Figure()
+            fig_macd.add_trace(go.Scatter(x=df.index, y=macd, mode="lines",
+                                           line=dict(color="#ff4b4b", width=2), name="MACD"))
+            fig_macd.add_trace(go.Scatter(x=df.index, y=sig_line, mode="lines",
+                                           line=dict(color="#4b8bff", width=2), name="シグナル"))
+            fig_macd.add_trace(go.Bar(x=df.index, y=hist, marker_color=hist_colors, opacity=0.6, name="ヒスト"))
+            fig_macd.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                                    font=dict(color="white"), height=180,
+                                    legend=dict(orientation="h", y=1.25),
+                                    margin=dict(t=20,b=25,l=50,r=10))
+            st.plotly_chart(fig_macd, use_container_width=True, config=PLOT_CONFIG)
 
         csv_d = display_df[["Open","High","Low","Close","Volume"]].copy()
         csv_d.index = csv_d.index.strftime("%Y-%m-%d")
