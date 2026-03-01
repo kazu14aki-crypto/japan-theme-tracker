@@ -1,26 +1,3 @@
-import streamlit as st
-import yfinance as yf
-import pandas as pd
-
-st.title("🇯🇵 日本株テーマトラッカー")
-period_options = {
-    "1週間": "5d",
-    "1ヶ月": "1mo",
-    "3ヶ月": "3mo",
-    "6ヶ月": "6mo",
-}
-selected_label = st.selectbox("📅 期間を選択", list(period_options.keys()))
-period = period_options[selected_label]
-period_options = {
-    "1週間": "5d",
-    "1ヶ月": "1mo",
-    "3ヶ月": "3mo",
-    "6ヶ月": "6mo",
-}
-selected_label = st.selectbox("📅 期間を選択", list(period_options.keys()))
-period = period_options[selected_label]
-
-# テーマと銘柄
 themes = {
     "半導体": {
         "東京エレクトロン": "8035.T",
@@ -105,6 +82,8 @@ themes = {
         "ヤマトHD":         "9064.T",
     },
 }
+
+
 page = st.sidebar.radio("ページ", ["📊 テーマ一覧", "🔍 個別株詳細"])
 
 if page == "📊 テーマ一覧":
@@ -125,7 +104,7 @@ if page == "📊 テーマ一覧":
                     if len(df) < 2:
                         continue
 
-                    # 騰落率
+                    
                     if period == "5d":
                         target_df = df.tail(5)
                     elif period == "1mo":
@@ -140,7 +119,7 @@ if page == "📊 テーマ一覧":
                     change = round((end - start) / start * 100, 2)
                     changes.append(change)
 
-                    # 出来高（直近期間 vs その前の期間）
+                    
                     half = len(target_df) // 2
                     recent_vol = target_df["Volume"].tail(half).mean()
                     prev_vol = target_df["Volume"].head(half).mean()
@@ -166,11 +145,15 @@ if page == "📊 テーマ一覧":
                     "合計出来高": int(total_volume)
                 })
                 theme_details[theme_name] = details
+
+    
     theme_results.sort(key=lambda x: x["平均騰落率(%)"], reverse=True)
 
     st.subheader("📊 テーマ別騰落率ランキング")
     df_chart = pd.DataFrame(theme_results).set_index("テーマ")[["平均騰落率(%)"]]
     st.bar_chart(df_chart)
+
+    
     st.subheader("📋 テーマ一覧")
     for rank, result in enumerate(theme_results, 1):
         change = result["平均騰落率(%)"]
@@ -182,6 +165,8 @@ if page == "📊 テーマ一覧":
             f"騰落率：{change}%　｜　"
             f"{vol_color} 出来高増減：{vol_change}%"
         )
+
+    
     st.subheader("🔍 テーマ別詳細（クリックで展開）")
     for result in theme_results:
         theme_name = result["テーマ"]
@@ -201,7 +186,8 @@ if page == "📊 テーマ一覧":
                         st.rerun()
 
 elif page == "🔍 個別株詳細":
-    # サイドバーで銘柄選択
+
+    
     all_stocks = {}
     for stocks in themes.values():
         for name, ticker in stocks.items():
@@ -220,22 +206,22 @@ elif page == "🔍 個別株詳細":
         df = yf.Ticker(selected_ticker).history(period=period)
 
     if len(df) > 0:
-        # 株価チャート
+        
         st.write("**株価推移**")
         st.line_chart(df["Close"])
 
-        # 出来高チャート
+        
         st.write("**出来高推移**")
         st.bar_chart(df["Volume"])
 
-        # 出来高増減
+        
         half = len(df) // 2
         recent_vol = df["Volume"].tail(half).mean()
         prev_vol = df["Volume"].head(half).mean()
         vol_change = round((recent_vol - prev_vol) / prev_vol * 100, 1)
         vol_icon = "📈" if vol_change > 0 else "📉"
 
-        # 騰落率
+        
         price_change = round((df["Close"].iloc[-1] - df["Close"].iloc[0]) / df["Close"].iloc[0] * 100, 2)
         price_icon = "🔴" if price_change > 0 else "🔵"
 
@@ -245,5 +231,4 @@ elif page == "🔍 個別株詳細":
         col3.metric("出来高増減", f"{vol_change}%")
     else:
         st.error("データを取得できませんでした")
-        
 
