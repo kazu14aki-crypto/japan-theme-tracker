@@ -411,29 +411,44 @@ def load_theme_history() -> pd.DataFrame:
 # =====================
 # グラフ関数
 # =====================
-def make_bar_chart(labels, values, colors, height=520, left_margin=160):
+def make_bar_chart(labels, values, colors, height=None, left_margin=200):
     if not values or not labels:
         fig = go.Figure()
-        fig.update_layout(height=200, paper_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
+        fig.update_layout(height=150, paper_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
         return fig
+    n = len(values)
+    h = height if height else max(180, n * 28)
     min_v = min(values)
     max_v = max(values)
-    text_positions = ["inside" if abs(v) > 3 else "outside" for v in values]
+    text_positions = ["inside" if abs(v) > 4 else "outside" for v in values]
     fig = go.Figure(go.Bar(
-        y=labels, x=values, orientation="h",
+        y=list(range(n)),
+        x=values,
+        orientation="h",
         marker_color=colors,
-        text=[f"{v}%" for v in values],
+        text=[f" {v}%" for v in values],
         textposition=text_positions,
-        textfont=dict(color="white", size=11),
+        textfont=dict(color="white", size=10),
         insidetextanchor="middle",
     ))
     fig.update_layout(
-        xaxis=dict(title="騰落率（%）", ticksuffix="%", zeroline=True, zerolinecolor="gray",
-                   range=[min_v*1.3 if min_v<0 else -2, max_v*1.3 if max_v>0 else 2]),
-        yaxis=dict(title="", autorange="reversed"),
+        xaxis=dict(
+            title="騰落率（%）", ticksuffix="%",
+            zeroline=True, zerolinecolor="#555", zerolinewidth=1,
+            range=[min_v*1.25 if min_v<0 else -1, max_v*1.25 if max_v>0 else 1],
+            tickfont=dict(size=9), title_font=dict(size=10),
+        ),
+        yaxis=dict(
+            tickmode="array",
+            tickvals=list(range(n)),
+            ticktext=labels,
+            autorange="reversed",
+            tickfont=dict(size=10),
+        ),
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white", size=11),
-        height=height, margin=dict(t=10, b=40, l=left_margin, r=20),
+        font=dict(color="white", size=10),
+        height=h, bargap=0.25,
+        margin=dict(t=8, b=32, l=left_margin, r=16),
     )
     return fig
 
@@ -572,8 +587,7 @@ if page == "📊 テーマ一覧":
     top_labels = [f"{i+1}位　{r['テーマ']}" for i, r in enumerate(top_results)]
     top_values = [r["平均騰落率(%)"] for r in top_results]
     top_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in top_values]
-    st.plotly_chart(make_bar_chart(top_labels, top_values, top_colors,
-                    max(300, len(top_results)*38), 170),
+    st.plotly_chart(make_bar_chart(top_labels, top_values, top_colors),
                     use_container_width=True, config=PLOT_CONFIG)
 
     # === 下位テーマランキング ===
@@ -583,8 +597,7 @@ if page == "📊 テーマ一覧":
         bot_labels = [f"{total-n+i+1}位　{r['テーマ']}" for i, r in enumerate(bot_results)]
         bot_values = [r["平均騰落率(%)"] for r in bot_results]
         bot_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in bot_values]
-        st.plotly_chart(make_bar_chart(bot_labels, bot_values, bot_colors,
-                        max(300, len(bot_results)*38), 170),
+        st.plotly_chart(make_bar_chart(bot_labels, bot_values, bot_colors),
                         use_container_width=True, config=PLOT_CONFIG)
 
     # === テーマ別出来高・売買代金ランキング ===
@@ -657,8 +670,7 @@ if page == "📊 テーマ一覧":
             s_labels = list(stocks_d.keys())
             s_values = [stocks_d[s]["change"] for s in s_labels]
             s_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in s_values]
-            st.plotly_chart(make_bar_chart(s_labels, s_values, s_colors,
-                            max(220, len(s_labels)*38), 140),
+            st.plotly_chart(make_bar_chart(s_labels, s_values, s_colors),
                             use_container_width=True, config=PLOT_CONFIG)
 
             # テーマ内 個別株出来高・売買代金ランキング
@@ -1050,8 +1062,7 @@ elif page == "📋 市場別ランキング":
                     t_labels = [f"{i+1}位 {r['銘柄']}" for i, r in enumerate(top5)]
                     t_values = [r["騰落率"] for r in top5]
                     t_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in t_values]
-                    st.plotly_chart(make_bar_chart(t_labels, t_values, t_colors,
-                                    max(220, len(top5)*40), 150),
+                    st.plotly_chart(make_bar_chart(t_labels, t_values, t_colors),
                                     use_container_width=True, config=PLOT_CONFIG)
                 with col_b:
                     if bot5:
@@ -1059,8 +1070,7 @@ elif page == "📋 市場別ランキング":
                         b_labels = [f"{n_seg-4+i}位 {r['銘柄']}" for i, r in enumerate(bot5)]
                         b_values = [r["騰落率"] for r in bot5]
                         b_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in b_values]
-                        st.plotly_chart(make_bar_chart(b_labels, b_values, b_colors,
-                                        max(220, len(bot5)*40), 150),
+                        st.plotly_chart(make_bar_chart(b_labels, b_values, b_colors),
                                         use_container_width=True, config=PLOT_CONFIG)
 
                 # 上位5件テーブル
@@ -1175,8 +1185,7 @@ elif page == "⭐ お気に入り":
         fav_labels = [r["銘柄"] for r in fav_results]
         fav_values = [r["change"] for r in fav_results]
         fav_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in fav_values]
-        st.plotly_chart(make_bar_chart(fav_labels, fav_values, fav_colors,
-                        max(280, len(fav_results)*45), 130),
+        st.plotly_chart(make_bar_chart(fav_labels, fav_values, fav_colors),
                         use_container_width=True, config=PLOT_CONFIG)
 
         table_data = []
