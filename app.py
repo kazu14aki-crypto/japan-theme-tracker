@@ -840,31 +840,31 @@ elif page == "🔥 ヒートマップ":
         all_theme_names = df_heat.index.tolist()
         period_cols = ["1週間","1ヶ月","3ヶ月","6ヶ月","1年"]
 
-        # テーマ表示切替（デフォルト上位5テーマ）
-        # 1ヶ月騰落率で上位5テーマをデフォルト選択
         sorted_by_1m = df_heat["1ヶ月"].sort_values(ascending=False)
-        default_themes_line = sorted_by_1m.head(5).index.tolist()
 
-        selected_line_themes = st.multiselect(
-            "表示するテーマを選択（複数OK）",
-            all_theme_names,
-            default=default_themes_line,
-            key="heatmap_line_themes"
-        )
+        # ボタンで「プリセット選択キー」を設定し、multiselect のdefaultに反映
+        if "hl_preset" not in st.session_state:
+            st.session_state["hl_preset"] = sorted_by_1m.head(5).index.tolist()
 
         col_sel1, col_sel2, col_sel3 = st.columns(3)
         with col_sel1:
-            if st.button("上昇TOP5を選択", key="hl_top5"):
-                st.session_state["heatmap_line_themes"] = sorted_by_1m.head(5).index.tolist()
+            if st.button("🔴 上昇TOP5", key="hl_top5"):
+                st.session_state["hl_preset"] = sorted_by_1m.head(5).index.tolist()
                 st.rerun()
         with col_sel2:
-            if st.button("下落TOP5を選択", key="hl_bot5"):
-                st.session_state["heatmap_line_themes"] = sorted_by_1m.tail(5).index.tolist()
+            if st.button("🟢 下落TOP5", key="hl_bot5"):
+                st.session_state["hl_preset"] = sorted_by_1m.tail(5).index.tolist()
                 st.rerun()
         with col_sel3:
-            if st.button("全テーマ表示", key="hl_all"):
-                st.session_state["heatmap_line_themes"] = all_theme_names
+            if st.button("📋 全テーマ", key="hl_all"):
+                st.session_state["hl_preset"] = all_theme_names
                 st.rerun()
+
+        selected_line_themes = st.multiselect(
+            "表示するテーマを選択（複数OK・直接変更も可）",
+            all_theme_names,
+            default=st.session_state["hl_preset"],
+        )
 
         if selected_line_themes:
             fig_line = go.Figure()
