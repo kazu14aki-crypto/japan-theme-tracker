@@ -475,18 +475,34 @@ def make_price_chart(df, display_df, chart_type="ローソク足", show_ma=True)
     )
     return fig
 
-def period_buttons():
-    """期間ボタンをボタン形式で横並び表示"""
+def period_buttons(key_prefix="main"):
+    """期間ボタン：スマホ対応の小サイズボタン横並び"""
+    st.markdown("""
+    <style>
+    div[data-testid="column"] div.stButton > button {
+        padding: 0.15em 0.2em !important;
+        font-size: 0.72em !important;
+        height: 2em !important;
+        min-width: 0 !important;
+        white-space: nowrap;
+    }
+    @media (min-width: 640px) {
+        div[data-testid="column"] div.stButton > button {
+            font-size: 0.88em !important;
+            height: 2.2em !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
     cols = st.columns(len(PERIOD_OPTIONS))
     for i, (label, code) in enumerate(PERIOD_OPTIONS.items()):
         with cols[i]:
             is_selected = st.session_state["selected_period"] == label
-            btn_label = f"**{label}**" if is_selected else label
-            if st.button(btn_label, key=f"period_btn_{label}",
+            btn_label = f"✅{label}" if is_selected else label
+            if st.button(btn_label, key=f"pb_{key_prefix}_{label}",
                          use_container_width=True):
                 st.session_state["selected_period"] = label
                 st.rerun()
-    # 選択中の期間を表示
     st.caption(f"📅 選択中：**{st.session_state['selected_period']}**")
     return PERIOD_OPTIONS[st.session_state["selected_period"]]
 
@@ -528,7 +544,7 @@ if page == "📊 テーマ一覧":
     st.caption(f"🕐 最終更新：{now}　　{len(themes)}テーマ・約{len(all_stocks)}銘柄")
 
     # 期間ボタン（上部）
-    period = period_buttons()
+    period = period_buttons(key_prefix="home")
 
     # 表示テーマ数選択
     col_disp1, col_disp2 = st.columns([3, 1])
@@ -575,25 +591,37 @@ if page == "📊 テーマ一覧":
     st.subheader("📊 テーマ別ランキング")
     col_rank1, col_rank2 = st.columns(2)
 
-    # 出来高ランキング
-    vol_sorted = sorted(theme_results, key=lambda x: x["合計出来高"], reverse=True)[:10]
+    # 出来高ランキング（デフォルト5件、全件展開）
+    vol_sorted_all = sorted(theme_results, key=lambda x: x["合計出来高"], reverse=True)
     with col_rank1:
-        st.markdown("**🔢 テーマ別出来高 TOP10**")
-        vol_df = pd.DataFrame([
+        st.markdown("**🔢 テーマ別出来高 TOP5**")
+        vol_df5 = pd.DataFrame([
             {"テーマ": r["テーマ"], "出来高": f"{int(r['合計出来高']):,}"}
-            for r in vol_sorted
+            for r in vol_sorted_all[:5]
         ]).set_index("テーマ")
-        st.dataframe(vol_df, use_container_width=True)
+        st.dataframe(vol_df5, use_container_width=True)
+        with st.expander("全テーマを表示"):
+            vol_df_all = pd.DataFrame([
+                {"テーマ": r["テーマ"], "出来高": f"{int(r['合計出来高']):,}"}
+                for r in vol_sorted_all
+            ]).set_index("テーマ")
+            st.dataframe(vol_df_all, use_container_width=True)
 
-    # 売買代金ランキング
-    tv_sorted = sorted(theme_results, key=lambda x: x["合計売買代金"], reverse=True)[:10]
+    # 売買代金ランキング（デフォルト5件、全件展開）
+    tv_sorted_all = sorted(theme_results, key=lambda x: x["合計売買代金"], reverse=True)
     with col_rank2:
-        st.markdown("**💴 テーマ別売買代金 TOP10**")
-        tv_df = pd.DataFrame([
+        st.markdown("**💴 テーマ別売買代金 TOP5**")
+        tv_df5 = pd.DataFrame([
             {"テーマ": r["テーマ"], "売買代金": format_large_number(r["合計売買代金"])}
-            for r in tv_sorted
+            for r in tv_sorted_all[:5]
         ]).set_index("テーマ")
-        st.dataframe(tv_df, use_container_width=True)
+        st.dataframe(tv_df5, use_container_width=True)
+        with st.expander("全テーマを表示"):
+            tv_df_all = pd.DataFrame([
+                {"テーマ": r["テーマ"], "売買代金": format_large_number(r["合計売買代金"])}
+                for r in tv_sorted_all
+            ]).set_index("テーマ")
+            st.dataframe(tv_df_all, use_container_width=True)
 
     # === 全テーマ一覧表 ===
     st.subheader("📋 全テーマ一覧")
@@ -617,7 +645,15 @@ if page == "📊 テーマ一覧":
         theme_name = result["テーマ"]
         stocks_d = theme_details.get(theme_name, {})
         if not stocks_d: continue
-        with st.expander(f"{theme_name}　騰落率 {result['平均騰落率(%)']}%　出来高増減 {result['出来高増減(%)']}%"):
+        # expanderはテーマ名のみ表示、展開すると騰落率・詳細を表示
+        with st.expander(f"📌 {theme_name}"):
+            # 展開後に騰落率・出来高増減を表示
+            c_val = result["平均騰落率(%)"]
+            v_val = result["出来高増減(%)"]
+            col_h1, col_h2, col_h3 = st.columns(3)
+            col_h1.metric("平均騰落率", f"{'🔴 +' if c_val>0 else '🟢 '}{c_val}%")
+            col_h2.metric("出来高増減", f"{'📈 +' if v_val>0 else '📉 '}{v_val}%")
+            col_h3.metric("銘柄数", f"{len(stocks_d)}銘柄")
             s_labels = list(stocks_d.keys())
             s_values = [stocks_d[s]["change"] for s in s_labels]
             s_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in s_values]
@@ -717,7 +753,7 @@ elif page == "📈 騰落推移":
 # ヒートマップ
 # =====================
 elif page == "🔥 ヒートマップ":
-    st.subheader("🔥 騰落率ヒートマップ（テーマ × 期間）")
+    st.subheader("🔥 テーマ別騰落率 ヒートマップ＆推移")
     st.caption(f"🕐 最終更新：{now}")
 
     @st.cache_data(ttl=3600)
@@ -745,30 +781,152 @@ elif page == "🔥 ヒートマップ":
         heatmap_data = fetch_heatmap_data(theme_keys)
 
     df_heat = pd.DataFrame(heatmap_data).T[["1週間","1ヶ月","3ヶ月","6ヶ月","1年"]]
-    z = df_heat.values.tolist()
-    text_v = [[f"{v}%" if v is not None else "N/A" for v in row] for row in z]
-    fig_heat = go.Figure(go.Heatmap(
-        z=z, x=["1週間","1ヶ月","3ヶ月","6ヶ月","1年"], y=df_heat.index.tolist(),
-        text=text_v, texttemplate="%{text}",
-        colorscale=[[0.0,"#39d353"],[0.5,"#1a1d27"],[1.0,"#ff4b4b"]],
-        zmid=0, showscale=True, colorbar=dict(title="騰落率(%)"),
-    ))
-    fig_heat.update_layout(
-        xaxis=dict(title="期間"), yaxis=dict(title="テーマ", autorange="reversed"),
-        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white", size=11), height=max(600, len(df_heat)*28),
-        margin=dict(t=30, b=50, l=160, r=20),
-    )
-    st.plotly_chart(fig_heat, use_container_width=True, config=PLOT_CONFIG)
-    st.download_button("📥 ヒートマップCSV", df_heat.to_csv(encoding="utf-8-sig"),
-                       f"ヒートマップ_{now}.csv", "text/csv")
+
+    # タブで表示切替
+    tab_heat, tab_line = st.tabs(["🟥 ヒートマップ（色分け表）", "📈 折れ線グラフ（推移）"])
+
+    with tab_heat:
+        st.markdown("""
+        **凡例：** 🔴赤 = 上昇　🟢緑 = 下落　⬛黒 = ±0付近
+        各セルにカーソルを合わせると数値が確認できます。
+        """)
+        z = df_heat.values.tolist()
+        text_v = [[f"{v}%" if v is not None else "N/A" for v in row] for row in z]
+
+        # 全値のmin/maxを取得してカラースケールを設定
+        all_vals = [v for row in z for v in row if v is not None]
+        abs_max = max(abs(min(all_vals)), abs(max(all_vals))) if all_vals else 10
+
+        fig_heat = go.Figure(go.Heatmap(
+            z=z,
+            x=["1週間","1ヶ月","3ヶ月","6ヶ月","1年"],
+            y=df_heat.index.tolist(),
+            text=text_v,
+            texttemplate="%{text}",
+            textfont=dict(size=11),
+            colorscale=[
+                [0.0,  "#1a8c3c"],   # 濃い緑（大幅下落）
+                [0.35, "#39d353"],   # 薄い緑（小幅下落）
+                [0.5,  "#1a1d27"],   # 黒（±0）
+                [0.65, "#ff8c69"],   # 薄い赤（小幅上昇）
+                [1.0,  "#ff1a1a"],   # 濃い赤（大幅上昇）
+            ],
+            zmid=0,
+            zmin=-abs_max,
+            zmax=abs_max,
+            showscale=True,
+            colorbar=dict(
+                title="騰落率(%)",
+                ticksuffix="%",
+                len=0.8,
+            ),
+        ))
+        fig_heat.update_layout(
+            xaxis=dict(title="期間", side="top"),
+            yaxis=dict(title="テーマ", autorange="reversed"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white", size=11),
+            height=max(550, len(df_heat)*28),
+            margin=dict(t=60, b=30, l=160, r=20),
+        )
+        st.plotly_chart(fig_heat, use_container_width=True, config=PLOT_CONFIG)
+        st.download_button("📥 ヒートマップCSV", df_heat.to_csv(encoding="utf-8-sig"),
+                           f"ヒートマップ_{now}.csv", "text/csv")
+
+    with tab_line:
+        st.markdown("**テーマを選択して推移を比較できます。**")
+
+        all_theme_names = df_heat.index.tolist()
+        period_cols = ["1週間","1ヶ月","3ヶ月","6ヶ月","1年"]
+
+        # テーマ表示切替（デフォルト上位5テーマ）
+        # 1ヶ月騰落率で上位5テーマをデフォルト選択
+        sorted_by_1m = df_heat["1ヶ月"].sort_values(ascending=False)
+        default_themes_line = sorted_by_1m.head(5).index.tolist()
+
+        selected_line_themes = st.multiselect(
+            "表示するテーマを選択（複数OK）",
+            all_theme_names,
+            default=default_themes_line,
+            key="heatmap_line_themes"
+        )
+
+        col_sel1, col_sel2, col_sel3 = st.columns(3)
+        with col_sel1:
+            if st.button("上昇TOP5を選択", key="hl_top5"):
+                st.session_state["heatmap_line_themes"] = sorted_by_1m.head(5).index.tolist()
+                st.rerun()
+        with col_sel2:
+            if st.button("下落TOP5を選択", key="hl_bot5"):
+                st.session_state["heatmap_line_themes"] = sorted_by_1m.tail(5).index.tolist()
+                st.rerun()
+        with col_sel3:
+            if st.button("全テーマ表示", key="hl_all"):
+                st.session_state["heatmap_line_themes"] = all_theme_names
+                st.rerun()
+
+        if selected_line_themes:
+            fig_line = go.Figure()
+
+            # カラーパレット（テーマ数が多くても区別しやすい色）
+            color_palette = [
+                "#ff4b4b","#4b8bff","#ffd700","#39d353","#ff9900",
+                "#cc44ff","#00cccc","#ff69b4","#90ee90","#ff6347",
+                "#87ceeb","#dda0dd","#98fb98","#ffa07a","#20b2aa",
+                "#f0e68c","#add8e6","#ffb6c1","#7fffd4","#e6e6fa",
+            ]
+
+            for idx, theme_name in enumerate(selected_line_themes):
+                if theme_name not in df_heat.index: continue
+                values = [df_heat.loc[theme_name, col] for col in period_cols]
+                color = color_palette[idx % len(color_palette)]
+                fig_line.add_trace(go.Scatter(
+                    x=period_cols,
+                    y=values,
+                    mode="lines+markers",
+                    name=theme_name,
+                    line=dict(color=color, width=2),
+                    marker=dict(size=8),
+                    connectgaps=True,
+                ))
+
+            fig_line.add_hline(y=0, line_dash="dash", line_color="gray", line_width=1)
+            fig_line.update_layout(
+                xaxis=dict(title="期間", categoryorder="array",
+                           categoryarray=period_cols),
+                yaxis=dict(title="騰落率（%）", ticksuffix="%"),
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="white", size=12),
+                height=500,
+                legend=dict(
+                    orientation="v",
+                    x=1.02, y=1,
+                    bgcolor="rgba(0,0,0,0.3)",
+                    font=dict(size=10),
+                ),
+                margin=dict(t=40, b=50, l=70, r=180),
+            )
+            st.plotly_chart(fig_line, use_container_width=True, config=PLOT_CONFIG)
+
+            # 選択テーマのデータ表
+            st.markdown("**📋 選択テーマの数値一覧**")
+            df_selected = df_heat.loc[selected_line_themes].copy()
+            # 数値に%をつけて表示
+            df_display_heat = df_selected.applymap(
+                lambda x: f"🔴 +{x}%" if x and x>0 else f"🟢 {x}%" if x else "N/A"
+            )
+            st.dataframe(df_display_heat, use_container_width=True)
+        else:
+            st.info("上のセレクトボックスからテーマを選択してください")
 
 # =====================
 # テーマ比較
 # =====================
 elif page == "📉 テーマ比較":
     st.subheader("📉 テーマ間比較チャート")
-    period = period_buttons()
+    period = period_buttons(key_prefix="comp")
     selected_themes_cmp = st.multiselect("比較するテーマを選択", list(themes.keys()),
                                           default=list(themes.keys())[:2])
     if len(selected_themes_cmp) < 2:
@@ -810,7 +968,7 @@ elif page == "📉 テーマ比較":
 # =====================
 elif page == "🌍 マクロ比較":
     st.subheader("🌍 マクロ指標との比較")
-    period = period_buttons()
+    period = period_buttons(key_prefix="macro")
     selected_stock_name = st.selectbox("比較する銘柄を選択", list(all_stocks.keys()))
     selected_ticker = all_stocks[selected_stock_name]
     macro_items = {"日経平均":"^N225","S&P500":"^GSPC","ドル円":"JPY=X","TOPIX(ETF)":"1306.T"}
@@ -846,12 +1004,12 @@ elif page == "🌍 マクロ比較":
     st.plotly_chart(fig_macro, use_container_width=True, config=PLOT_CONFIG)
 
 # =====================
-# 市場別ランキング（新機能）
+# 市場別ランキング
 # =====================
 elif page == "📋 市場別ランキング":
     st.subheader("📋 市場別ランキング")
     st.caption("日経225・プライム・スタンダード・グロース別の騰落率ランキング")
-    period = period_buttons()
+    period = period_buttons(key_prefix="market")
 
     for seg_name, seg_stocks in MARKET_SEGMENTS.items():
         with st.expander(f"📌 {seg_name}", expanded=True):
@@ -880,26 +1038,55 @@ elif page == "📋 市場別ランキング":
 
             if seg_results:
                 seg_results.sort(key=lambda x: x["騰落率"], reverse=True)
-                labels = [f"{i+1}位 {r['銘柄']}" for i, r in enumerate(seg_results)]
-                values = [r["騰落率"] for r in seg_results]
-                colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in values]
-                st.plotly_chart(make_bar_chart(labels, values, colors,
-                                max(250, len(seg_results)*35), 160),
-                                use_container_width=True, config=PLOT_CONFIG)
+                n_seg = len(seg_results)
 
-                df_seg = pd.DataFrame([{
+                # 上位5件グラフ
+                top5 = seg_results[:5]
+                bot5 = seg_results[-5:] if n_seg > 5 else []
+
+                col_t, col_b = st.columns(2)
+                with col_t:
+                    st.markdown("**🔴 上位5銘柄**")
+                    t_labels = [f"{i+1}位 {r['銘柄']}" for i, r in enumerate(top5)]
+                    t_values = [r["騰落率"] for r in top5]
+                    t_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in t_values]
+                    st.plotly_chart(make_bar_chart(t_labels, t_values, t_colors,
+                                    max(220, len(top5)*40), 150),
+                                    use_container_width=True, config=PLOT_CONFIG)
+                with col_b:
+                    if bot5:
+                        st.markdown("**🟢 下位5銘柄**")
+                        b_labels = [f"{n_seg-4+i}位 {r['銘柄']}" for i, r in enumerate(bot5)]
+                        b_values = [r["騰落率"] for r in bot5]
+                        b_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in b_values]
+                        st.plotly_chart(make_bar_chart(b_labels, b_values, b_colors,
+                                        max(220, len(bot5)*40), 150),
+                                        use_container_width=True, config=PLOT_CONFIG)
+
+                # 上位5件テーブル
+                df_top5 = pd.DataFrame([{
                     "銘柄": r["銘柄"], "株価": r["株価"], "前日比": r["前日比"],
                     "騰落率": f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
                     "売買代金": r["売買代金"],
-                } for r in seg_results]).set_index("銘柄")
-                st.dataframe(df_seg, use_container_width=True)
+                } for r in top5]).set_index("銘柄")
+                st.dataframe(df_top5, use_container_width=True)
+
+                # 全件展開
+                with st.expander(f"全{n_seg}銘柄を表示"):
+                    df_all_seg = pd.DataFrame([{
+                        "順位": f"{i+1}位",
+                        "銘柄": r["銘柄"], "株価": r["株価"], "前日比": r["前日比"],
+                        "騰落率": f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                        "売買代金": r["売買代金"],
+                    } for i, r in enumerate(seg_results)]).set_index("順位")
+                    st.dataframe(df_all_seg, use_container_width=True)
 
 # =====================
 # 銘柄検索
 # =====================
 elif page == "🔎 銘柄検索":
     st.subheader("🔎 銘柄検索")
-    period = period_buttons()
+    period = period_buttons(key_prefix="search")
     query = st.text_input("銘柄名を入力", placeholder="例：トヨタ、ソニー、三菱...")
     theme_filter = st.multiselect("テーマで絞り込む（任意）", list(themes.keys()))
 
@@ -961,7 +1148,7 @@ elif page == "🔎 銘柄検索":
 # =====================
 elif page == "⭐ お気に入り":
     st.subheader("⭐ お気に入り銘柄")
-    period = period_buttons()
+    period = period_buttons(key_prefix="fav")
     if len(st.session_state["favorites"]) == 0:
         st.info("テーマ一覧ページで「☆ 登録」ボタンを押して追加してください。")
     else:
@@ -1025,7 +1212,7 @@ elif page == "⭐ お気に入り":
 # 個別株詳細
 # =====================
 elif page == "🔍 個別株詳細":
-    period = period_buttons()
+    period = period_buttons(key_prefix="detail")
     st.caption(f"🕐 最終更新：{now}")
     selected_name = st.sidebar.selectbox(
         "銘柄を選択", list(all_stocks.keys()),
