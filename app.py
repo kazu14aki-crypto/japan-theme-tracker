@@ -411,16 +411,43 @@ def load_theme_history() -> pd.DataFrame:
 # =====================
 # グラフ関数
 # =====================
-def make_bar_chart(labels, values, colors, height=None, left_margin=200):
+def make_bar_chart(labels, values, colors, height=None, left_margin=None):
+    """
+    ラベルを「順位部分＋テーマ名部分」に分解して固定幅表示。
+    ticktext に HTML は使えないため、ticklabelposition と ticklen で対応。
+    順位とテーマ名を <br> で改行せず、スペースパディングで揃える。
+    """
     if not values or not labels:
         fig = go.Figure()
         fig.update_layout(height=150, paper_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
         return fig
+
     n = len(values)
-    h = height if height else max(180, n * 28)
+    h = height if height else max(200, n * 34)
+
+    # ラベルを「順位」と「テーマ名」に分割して固定幅に整形
+    # 例: "1位  EV・電気自動車" → 順位部分を右揃え固定幅4文字
+    formatted = []
+    for lbl in labels:
+        parts = lbl.split("　", 1) if "　" in lbl else lbl.split("  ", 1) if "  " in lbl else ["", lbl]
+        if len(parts) == 2:
+            rank_part = parts[0].strip()   # "1位"
+            name_part = parts[1].strip()   # "EV・電気自動車"
+            # 順位部分を固定幅4文字（右揃え）
+            rank_padded = rank_part.rjust(4)
+            formatted.append(f"{rank_padded}  {name_part}")
+        else:
+            formatted.append(lbl)
+
+    # left_margin を自動計算（テーマ名の最大文字数に基づく）
+    max_label_len = max(len(l) for l in formatted)
+    auto_margin = max(160, max_label_len * 11)
+    lm = left_margin if left_margin else auto_margin
+
     min_v = min(values)
     max_v = max(values)
     text_positions = ["inside" if abs(v) > 4 else "outside" for v in values]
+
     fig = go.Figure(go.Bar(
         y=list(range(n)),
         x=values,
@@ -428,27 +455,28 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=200):
         marker_color=colors,
         text=[f" {v}%" for v in values],
         textposition=text_positions,
-        textfont=dict(color="white", size=10),
+        textfont=dict(color="white", size=11),
         insidetextanchor="middle",
     ))
     fig.update_layout(
         xaxis=dict(
             title="騰落率（%）", ticksuffix="%",
             zeroline=True, zerolinecolor="#555", zerolinewidth=1,
-            range=[min_v*1.25 if min_v<0 else -1, max_v*1.25 if max_v>0 else 1],
-            tickfont=dict(size=9), title_font=dict(size=10),
+            range=[min_v * 1.2 if min_v < 0 else -1,
+                   max_v * 1.2 if max_v > 0 else 1],
+            tickfont=dict(size=10), title_font=dict(size=11),
         ),
         yaxis=dict(
             tickmode="array",
             tickvals=list(range(n)),
-            ticktext=labels,
+            ticktext=formatted,
             autorange="reversed",
-            tickfont=dict(size=10),
+            tickfont=dict(size=11, family="Courier New, monospace"),  # 等幅フォントで列が揃う
         ),
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white", size=10),
-        height=h, bargap=0.25,
-        margin=dict(t=8, b=32, l=left_margin, r=16),
+        font=dict(color="white", size=11),
+        height=h, bargap=0.2,
+        margin=dict(t=8, b=36, l=lm, r=16),
     )
     return fig
 
