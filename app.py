@@ -722,37 +722,42 @@ if page == "📊 テーマ一覧":
     st.subheader("📊 テーマ別ランキング")
     col_rank1, col_rank2 = st.columns(2)
 
-    # 出来高ランキング（デフォルト5件、全件展開）
+    if "show_vol_all" not in st.session_state:
+        st.session_state["show_vol_all"] = False
+    if "show_tv_all" not in st.session_state:
+        st.session_state["show_tv_all"] = False
+
+    # 出来高ランキング
     vol_sorted_all = sorted(theme_results, key=lambda x: x["合計出来高"], reverse=True)
     with col_rank1:
-        st.markdown("**🔢 テーマ別出来高 TOP5**")
-        vol_df5 = pd.DataFrame([
-            {"テーマ": r["テーマ"], "出来高": f"{int(r['合計出来高']):,}"}
-            for r in vol_sorted_all[:5]
-        ]).set_index("テーマ")
-        st.dataframe(vol_df5, use_container_width=True)
-        with st.expander("全テーマを表示"):
-            vol_df_all = pd.DataFrame([
-                {"テーマ": r["テーマ"], "出来高": f"{int(r['合計出来高']):,}"}
-                for r in vol_sorted_all
-            ]).set_index("テーマ")
-            st.dataframe(vol_df_all, use_container_width=True)
+        st.markdown("**🔢 テーマ別出来高**")
+        show_v = st.session_state["show_vol_all"]
+        disp_vol = vol_sorted_all if show_v else vol_sorted_all[:5]
+        vol_rows = [
+            {"順位": f"{i+1}位", "テーマ": r["テーマ"], "出来高": f"{int(r['合計出来高']):,}"}
+            for i, r in enumerate(disp_vol)
+        ]
+        st.dataframe(pd.DataFrame(vol_rows).set_index("順位"), use_container_width=True)
+        btn_label_v = "▲ 閉じる" if show_v else f"▼ 6位以下を表示（残り{len(vol_sorted_all)-5}件）"
+        if st.button(btn_label_v, key="btn_vol_toggle", use_container_width=True):
+            st.session_state["show_vol_all"] = not show_v
+            st.rerun()
 
-    # 売買代金ランキング（デフォルト5件、全件展開）
+    # 売買代金ランキング
     tv_sorted_all = sorted(theme_results, key=lambda x: x["合計売買代金"], reverse=True)
     with col_rank2:
-        st.markdown("**💴 テーマ別売買代金 TOP5**")
-        tv_df5 = pd.DataFrame([
-            {"テーマ": r["テーマ"], "売買代金": format_large_number(r["合計売買代金"])}
-            for r in tv_sorted_all[:5]
-        ]).set_index("テーマ")
-        st.dataframe(tv_df5, use_container_width=True)
-        with st.expander("全テーマを表示"):
-            tv_df_all = pd.DataFrame([
-                {"テーマ": r["テーマ"], "売買代金": format_large_number(r["合計売買代金"])}
-                for r in tv_sorted_all
-            ]).set_index("テーマ")
-            st.dataframe(tv_df_all, use_container_width=True)
+        st.markdown("**💴 テーマ別売買代金**")
+        show_t = st.session_state["show_tv_all"]
+        disp_tv = tv_sorted_all if show_t else tv_sorted_all[:5]
+        tv_rows = [
+            {"順位": f"{i+1}位", "テーマ": r["テーマ"], "売買代金": format_large_number(r["合計売買代金"])}
+            for i, r in enumerate(disp_tv)
+        ]
+        st.dataframe(pd.DataFrame(tv_rows).set_index("順位"), use_container_width=True)
+        btn_label_t = "▲ 閉じる" if show_t else f"▼ 6位以下を表示（残り{len(tv_sorted_all)-5}件）"
+        if st.button(btn_label_t, key="btn_tv_toggle", use_container_width=True):
+            st.session_state["show_tv_all"] = not show_t
+            st.rerun()
 
     # === 全テーマ一覧表 ===
     st.subheader("📋 全テーマ一覧")
@@ -791,17 +796,23 @@ if page == "📊 テーマ一覧":
             st.plotly_chart(make_bar_chart(s_labels, s_values, s_colors),
                             use_container_width=True, config=PLOT_CONFIG)
 
-            # テーマ内 個別株出来高・売買代金ランキング
+            # テーマ内 個別株出来高・売買代金ランキング（順位付き）
             col_r1, col_r2 = st.columns(2)
             with col_r1:
                 st.markdown("**🔢 個別株出来高ランキング**")
                 vol_rank = sorted(stocks_d.items(), key=lambda x: x[1]["volume"], reverse=True)
-                vr_df = pd.DataFrame([{"銘柄":k,"出来高":f"{v['volume']:,}"} for k,v in vol_rank]).set_index("銘柄")
+                vr_df = pd.DataFrame([
+                    {"順位": f"{i+1}位", "銘柄": k, "出来高": f"{v['volume']:,}"}
+                    for i, (k, v) in enumerate(vol_rank)
+                ]).set_index("順位")
                 st.dataframe(vr_df, use_container_width=True)
             with col_r2:
                 st.markdown("**💴 個別株売買代金ランキング**")
                 tv_rank = sorted(stocks_d.items(), key=lambda x: x[1]["trade_value"], reverse=True)
-                tvr_df = pd.DataFrame([{"銘柄":k,"売買代金":format_large_number(v["trade_value"])} for k,v in tv_rank]).set_index("銘柄")
+                tvr_df = pd.DataFrame([
+                    {"順位": f"{i+1}位", "銘柄": k, "売買代金": format_large_number(v["trade_value"])}
+                    for i, (k, v) in enumerate(tv_rank)
+                ]).set_index("順位")
                 st.dataframe(tvr_df, use_container_width=True)
 
             # 銘柄詳細テーブル
@@ -943,19 +954,29 @@ elif page == "🔥 ヒートマップ":
         # 短縮ラベル（スマホで縦にならないよう短く）
         short_labels = ["1W","1M","3M","6M","1Y"]
 
+        n_themes = len(df_heat)
+
+        # セル内テキスト：小さくコンパクトに（±記号なし、1桁小数）
+        cell_text = [
+            [f"{v:.1f}%" if v is not None else "" for v in row]
+            for row in z
+        ]
+
         fig_heat = go.Figure(go.Heatmap(
             z=z,
             x=short_labels,
             y=df_heat.index.tolist(),
-            text=hover_text,
-            hovertemplate="%{text}<extra></extra>",
-            texttemplate="",          # セル内テキストなし（スマホで重ならない）
+            text=cell_text,
+            hovertext=hover_text,
+            hovertemplate="%{hovertext}<extra></extra>",
+            texttemplate="%{text}",
+            textfont=dict(size=9, color="white"),
             colorscale=[
-                [0.0,  "#1a7a35"],
-                [0.3,  "#39d353"],
-                [0.5,  "#1a1d27"],
-                [0.7,  "#ff8c69"],
-                [1.0,  "#ff1a1a"],
+                [0.0,  "#0d6e2a"],   # 濃い緑
+                [0.35, "#52c76a"],   # 薄い緑
+                [0.5,  "#23263a"],   # 暗い青黒（±0）
+                [0.65, "#e8845a"],   # 薄い赤
+                [1.0,  "#e8192c"],   # 濃い赤
             ],
             zmid=0,
             zmin=-abs_max,
@@ -963,20 +984,21 @@ elif page == "🔥 ヒートマップ":
             showscale=True,
             colorbar=dict(
                 title=dict(text="%", side="right"),
-                thickness=12,
-                len=0.8,
+                thickness=14,
+                len=0.85,
                 ticksuffix="%",
+                tickfont=dict(size=10),
                 x=1.01,
             ),
-            xgap=2,
-            ygap=2,
+            xgap=3,
+            ygap=3,
         ))
-        n_themes = len(df_heat)
+        row_h = 26   # 1行あたりの高さ（px）
         fig_heat.update_layout(
             xaxis=dict(
                 side="top",
                 tickfont=dict(size=12, color="white"),
-                tickangle=0,          # 横向き固定（縦回転させない）
+                tickangle=0,
                 fixedrange=True,
             ),
             yaxis=dict(
@@ -987,21 +1009,11 @@ elif page == "🔥 ヒートマップ":
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="white"),
-            height=max(400, n_themes * 22),
-            margin=dict(t=40, b=10, l=140, r=55),
+            height=max(420, n_themes * row_h + 60),
+            margin=dict(t=45, b=10, l=150, r=60),
         )
         st.plotly_chart(fig_heat, use_container_width=True,
                         config={"displayModeBar": False, "staticPlot": False})
-
-        # 数値テーブル（スクロール可・コンパクト）
-        st.markdown("**📋 数値一覧（スクロール可）**")
-        df_disp = df_heat.copy()
-        df_disp.columns = short_labels
-        def fmt(v):
-            if v is None: return "N/A"
-            return f"+{v}%" if v > 0 else f"{v}%"
-        df_disp = df_disp.applymap(fmt)
-        st.dataframe(df_disp, use_container_width=True, height=min(600, n_themes*35+40))
 
         st.download_button("📥 CSVダウンロード", df_heat.to_csv(encoding="utf-8-sig"),
                            f"ヒートマップ_{now}.csv", "text/csv")
