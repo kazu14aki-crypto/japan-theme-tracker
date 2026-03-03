@@ -1,3 +1,6 @@
+p · PY
+コピー
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -51,125 +54,180 @@ if "custom_themes" not in st.session_state:
     st.session_state["custom_themes"] = {}
 
 # =====================
-# 25テーマ・約180銘柄
+# 30テーマ・約250銘柄
 # =====================
 DEFAULT_THEMES = {
     "半導体": {
         "東京エレクトロン":"8035.T","アドバンテスト":"6857.T","ルネサス":"6723.T",
         "ディスコ":"6146.T","SUMCO":"3436.T","レーザーテック":"6920.T",
         "ソシオネクスト":"6526.T","マイクロニクス":"6871.T","フェローテック":"6890.T",
+        "東京精密":"7729.T","ウシオ電機":"6925.T","リバーエレテック":"6666.T",
     },
     "AI・クラウド": {
         "富士通":"6702.T","NEC":"6701.T","さくらインターネット":"3778.T",
         "日立製作所":"6501.T","オービック":"4684.T","GMOインターネット":"9449.T",
         "BIPROGY":"8056.T","TIS":"3626.T","野村総合研究所":"4307.T",
+        "SCSK":"9719.T","伊藤忠テクノソリューションズ":"4739.T","日鉄ソリューションズ":"2327.T",
     },
     "EV・電気自動車": {
         "トヨタ":"7203.T","パナソニック":"6752.T","住友電気工業":"5802.T",
         "デンソー":"6902.T","日産自動車":"7201.T","本田技研工業":"7267.T",
         "村田製作所":"6981.T","TDK":"6762.T","古河電気工業":"5801.T",
+        "三菱自動車":"7211.T","マツダ":"7261.T","住友電装":"5802.T",
     },
     "ゲーム・エンタメ": {
         "任天堂":"7974.T","ソニー":"6758.T","カプコン":"9697.T",
         "バンダイナムコ":"7832.T","スクウェア・エニックス":"9684.T",
         "コナミ":"9766.T","セガサミー":"6460.T","DeNA":"2432.T","ネクソン":"3659.T",
+        "コーエーテクモ":"3635.T","アカツキ":"3932.T","グリー":"3632.T",
     },
     "銀行・金融": {
         "三菱UFJ":"8306.T","三井住友":"8316.T","みずほ":"8411.T",
         "りそな":"8308.T","ゆうちょ銀行":"7182.T","野村HD":"8604.T",
-        "大和証券グループ":"8601.T",
+        "大和証券グループ":"8601.T","松井証券":"8628.T","auカブコム証券":"8703.T",
     },
     "地方銀行": {
         "静岡銀行":"8355.T","コンコルディア":"7186.T","ふくおかFG":"8354.T",
         "北海道銀行":"8179.T","七十七銀行":"8341.T","広島銀行":"8379.T",
-        "伊予銀行":"8385.T","山口FG":"8418.T",
+        "伊予銀行":"8385.T","山口FG":"8418.T","東邦銀行":"8346.T",
+        "滋賀銀行":"8366.T","琉球銀行":"8399.T",
     },
     "保険": {
         "東京海上HD":"8766.T","MS&AD":"8725.T","第一生命":"8750.T",
         "SOMPOホールディングス":"8630.T","かんぽ生命":"7181.T",
+        "T&Dホールディングス":"8795.T",
     },
     "不動産": {
         "三井不動産":"8801.T","住友不動産":"8830.T","東急不動産HD":"3289.T",
         "三菱地所":"8802.T","野村不動産HD":"3231.T","ヒューリック":"3003.T",
-        "大東建託":"1878.T",
+        "大東建託":"1878.T","レオパレス21":"8848.T","日本エスリード":"8877.T",
+        "Open House":"3288.T",
     },
     "医薬品・バイオ": {
         "武田薬品":"4502.T","アステラス製薬":"4503.T","第一三共":"4568.T",
         "中外製薬":"4519.T","大塚HD":"4578.T","エーザイ":"4523.T",
-        "小野薬品":"4528.T","塩野義製薬":"4507.T",
+        "小野薬品":"4528.T","塩野義製薬":"4507.T","参天製薬":"4536.T",
+        "久光製薬":"4530.T","ロート製薬":"4527.T",
     },
     "ヘルスケア・介護": {
         "エムスリー":"2413.T","メドレー":"4480.T","ケアネット":"2150.T",
         "ツムラ":"4540.T","テルモ":"4543.T","シスメックス":"6869.T",
-        "オリンパス":"7733.T",
+        "オリンパス":"7733.T","ニプロ":"8086.T","フクダ電子":"6960.T",
     },
     "食品・飲料": {
         "味の素":"2802.T","キリンHD":"2503.T","日清食品HD":"2897.T",
         "明治HD":"2269.T","サントリー食品":"2587.T","日本ハム":"2282.T",
-        "カゴメ":"2811.T","ニッスイ":"1332.T",
+        "カゴメ":"2811.T","ニッスイ":"1332.T","アサヒグループHD":"2502.T",
+        "山崎製パン":"2212.T","江崎グリコ":"2206.T",
     },
     "小売・EC": {
         "ファーストリテイリング":"9983.T","セブン&アイ":"3382.T","MonotaRO":"3064.T",
         "イオン":"8267.T","ニトリHD":"9843.T","Zホールディングス":"4689.T",
-        "ウエルシアHD":"3141.T",
+        "ウエルシアHD":"3141.T","ドン・キホーテ（PPIH）":"7532.T",
+        "マツキヨコクミンHD":"3088.T","スギHD":"7649.T",
     },
     "通信": {
         "NTT":"9432.T","ソフトバンク":"9434.T","KDDI":"9433.T",
         "楽天グループ":"4755.T","インターネットイニシアティブ":"3774.T",
+        "オプテージ（関西電力子会社）":"9503.T","JCOM":"4547.T",
     },
     "鉄鋼・素材": {
         "日本製鉄":"5401.T","JFEホールディングス":"5411.T","神戸製鋼所":"5406.T",
         "大和工業":"5444.T","東京製鐵":"5423.T","日本軽金属HD":"5703.T",
+        "東邦チタニウム":"5727.T","大阪チタニウム":"5726.T",
     },
     "化学": {
         "信越化学工業":"4063.T","東レ":"3402.T","住友化学":"4005.T",
         "旭化成":"3407.T","三菱ケミカルグループ":"4188.T","花王":"4452.T",
-        "富士フイルムHD":"4901.T",
+        "富士フイルムHD":"4901.T","クレハ":"4023.T","カネカ":"4118.T",
+        "日東電工":"6988.T",
     },
     "建設・インフラ": {
         "大林組":"1802.T","鹿島建設":"1812.T","大成建設":"1801.T",
         "清水建設":"1803.T","積水ハウス":"1928.T","大和ハウス工業":"1925.T",
+        "長谷工コーポレーション":"1808.T","前田建設工業":"1824.T",
+        "西松建設":"1820.T",
     },
     "輸送・物流": {
         "日本郵船":"9101.T","商船三井":"9104.T","ヤマトHD":"9064.T",
         "川崎汽船":"9107.T","センコーグループ":"9069.T","日本通運":"9062.T",
+        "SGホールディングス":"9143.T","近鉄エクスプレス":"9375.T",
     },
     "防衛・航空宇宙": {
         "三菱重工業":"7011.T","川崎重工業":"7012.T","IHI":"7013.T",
         "三菱電機":"6503.T","豊和工業":"6203.T","日本航空電子工業":"6807.T",
+        "東京計器":"7721.T","NEC":"6701.T","富士通":"6702.T",
     },
     "フィンテック": {
         "マネックスグループ":"8698.T","SBIホールディングス":"8473.T",
         "GMOフィナンシャルHD":"7177.T","メルカリ":"4385.T",
         "インフォマート":"2492.T","オリエントコーポレーション":"8585.T",
+        "GMOペイメントゲートウェイ":"3769.T","アイフル":"8515.T",
     },
     "再生可能エネルギー": {
         "レノバ":"9519.T","ウエストHD":"1407.T",
         "東京電力HD":"9501.T","関西電力":"9503.T","中部電力":"9502.T",
-        "出光興産":"5019.T","ENEOS HD":"5020.T",
+        "出光興産":"5019.T","ENEOS HD":"5020.T","北陸電力":"9505.T",
+        "Jパワー":"9513.T",
     },
     "ロボット・自動化": {
         "ファナック":"6954.T","安川電機":"6506.T","キーエンス":"6861.T",
         "不二越":"6474.T","三菱電機":"6503.T","オムロン":"6645.T",
+        "川崎重工業":"7012.T","デンソー":"6902.T","THK":"6481.T",
     },
     "レアアース・資源": {
         "住友金属鉱山":"5713.T","三井物産":"8031.T","三菱商事":"8058.T",
         "丸紅":"8002.T","DOWAホールディングス":"5714.T","太平洋金属":"5441.T",
+        "伊藤忠商事":"8001.T","住友商事":"8053.T",
     },
     "サイバーセキュリティ": {
         "トレンドマイクロ":"4704.T","サイバーセキュリティクラウド":"4493.T",
         "デジタルアーツ":"2326.T","FFRIセキュリティ":"3692.T",
         "ソリトンシステムズ":"3040.T","野村総合研究所":"4307.T",
+        "セキュアワークス":"なし","Macnica Holdings":"3132.T",
     },
     "ドローン・空飛ぶ車": {
         "ACSLエアロスペース":"6232.T","ヤマハ発動機":"7272.T",
         "川崎重工業":"7012.T","NTT":"9432.T","富士通":"6702.T",
-        "セキド":"9878.T",
+        "セキド":"9878.T","テラ":"2758.T",
     },
     "造船": {
         "三菱重工業":"7011.T","川崎重工業":"7012.T",
         "住友重機械工業":"6302.T","名村造船所":"7014.T","内海造船":"7018.T",
+        "ジャパンマリンユナイテッド（JMU）":"7014.T","三井E&S":"7003.T",
     },
+    # === 新規追加テーマ ===
+    "観光・ホテル・レジャー": {
+        "オリエンタルランド":"4661.T","東急":"9005.T","近鉄グループHD":"9041.T",
+        "リクルートHD":"6098.T","楽天グループ":"4755.T","HISホールディングス":"9603.T",
+        "星野リゾートReit":"3287.T","藤田観光":"9722.T","JAL":"9201.T","ANA":"9202.T",
+    },
+    "農業・フードテック": {
+        "クボタ":"6326.T","ヤンマーHD":"6255.T","井関農機":"6310.T",
+        "味の素":"2802.T","明治HD":"2269.T","カゴメ":"2811.T",
+        "オイシックス・ラ・大地":"3182.T","ファーマフーズ":"2929.T",
+    },
+    "教育・HR・人材": {
+        "ベネッセHD":"9783.T","リクルートHD":"6098.T","パーソルHD":"2181.T",
+        "リンクアンドモチベーション":"2170.T","エン・ジャパン":"4849.T",
+        "Schoo":"なし","マイナビ（非上場）":"なし","ソウルドアウト":"7034.T",
+    },
+    "脱炭素・ESG": {
+        "ENEOS HD":"5020.T","東レ":"3402.T","旭化成":"3407.T",
+        "積水ハウス":"1928.T","パナソニック":"6752.T","リコー":"7752.T",
+        "コニカミノルタ":"4902.T","大王製紙":"3880.T",
+    },
+    "宇宙・衛星": {
+        "三菱重工業":"7011.T","IHI":"7013.T","NEC":"6701.T",
+        "富士通":"6702.T","NTT":"9432.T","KDDI":"9433.T",
+        "スカパーJSATHD":"9412.T","東京エレクトロン":"8035.T",
+    },
+}
+
+# 「なし」ティッカーを除外
+DEFAULT_THEMES = {
+    theme: {k: v for k, v in stocks.items() if v != "なし"}
+    for theme, stocks in DEFAULT_THEMES.items()
 }
 
 # 市場分類データ（日経225・プライム・スタンダード・グロース）
@@ -857,144 +915,182 @@ elif page == "🔥 ヒートマップ":
 
     df_heat = pd.DataFrame(heatmap_data).T[["1週間","1ヶ月","3ヶ月","6ヶ月","1年"]]
 
+    period_cols = ["1週間","1ヶ月","3ヶ月","6ヶ月","1年"]
+    all_theme_names = df_heat.index.tolist()
+    sorted_by_1m = df_heat["1ヶ月"].sort_values(ascending=False)
+    all_vals = [v for row in df_heat.values.tolist() for v in row if v is not None]
+    abs_max = max(abs(min(all_vals)), abs(max(all_vals))) if all_vals else 10
+
     # タブで表示切替
-    tab_heat, tab_line = st.tabs(["🟥 ヒートマップ（色分け表）", "📈 折れ線グラフ（推移）"])
+    tab_heat, tab_line = st.tabs(["🟥 ヒートマップ", "📈 折れ線グラフ"])
 
+    # ============================================================
+    # タブ1：ヒートマップ
+    # スマホ対応：数値テキストを除去してセル色のみ表示
+    # 期間ラベルは短縮形（1W/1M/3M/6M/1Y）でラベル縦回転を防止
+    # スクロール可能なdivで横スクロールに対応
+    # ============================================================
     with tab_heat:
-        st.markdown("""
-        **凡例：** 🔴赤 = 上昇　🟢緑 = 下落　⬛黒 = ±0付近
-        各セルにカーソルを合わせると数値が確認できます。
-        """)
-        z = df_heat.values.tolist()
-        text_v = [[f"{v}%" if v is not None else "N/A" for v in row] for row in z]
+        # 凡例
+        st.markdown("🔴**赤=上昇** 　🟢**緑=下落** 　⬛**黒=±0**")
+        st.caption("セルをタップ/ホバーで数値確認　※横スクロール可")
 
-        # 全値のmin/maxを取得してカラースケールを設定
-        all_vals = [v for row in z for v in row if v is not None]
-        abs_max = max(abs(min(all_vals)), abs(max(all_vals))) if all_vals else 10
+        z = df_heat.values.tolist()
+        # ホバー用テキスト（セル内には表示しない）
+        hover_text = [
+            [f"{df_heat.index[i]}<br>{period_cols[j]}: {z[i][j]}%" if z[i][j] is not None else "N/A"
+             for j in range(len(period_cols))]
+            for i in range(len(df_heat.index))
+        ]
+
+        # 短縮ラベル（スマホで縦にならないよう短く）
+        short_labels = ["1W","1M","3M","6M","1Y"]
 
         fig_heat = go.Figure(go.Heatmap(
             z=z,
-            x=["1週間","1ヶ月","3ヶ月","6ヶ月","1年"],
+            x=short_labels,
             y=df_heat.index.tolist(),
-            text=text_v,
-            texttemplate="%{text}",
-            textfont=dict(size=11),
+            text=hover_text,
+            hovertemplate="%{text}<extra></extra>",
+            texttemplate="",          # セル内テキストなし（スマホで重ならない）
             colorscale=[
-                [0.0,  "#1a8c3c"],   # 濃い緑（大幅下落）
-                [0.35, "#39d353"],   # 薄い緑（小幅下落）
-                [0.5,  "#1a1d27"],   # 黒（±0）
-                [0.65, "#ff8c69"],   # 薄い赤（小幅上昇）
-                [1.0,  "#ff1a1a"],   # 濃い赤（大幅上昇）
+                [0.0,  "#1a7a35"],
+                [0.3,  "#39d353"],
+                [0.5,  "#1a1d27"],
+                [0.7,  "#ff8c69"],
+                [1.0,  "#ff1a1a"],
             ],
             zmid=0,
             zmin=-abs_max,
             zmax=abs_max,
             showscale=True,
             colorbar=dict(
-                title="騰落率(%)",
-                ticksuffix="%",
+                title=dict(text="%", side="right"),
+                thickness=12,
                 len=0.8,
+                ticksuffix="%",
+                x=1.01,
             ),
+            xgap=2,
+            ygap=2,
         ))
+        n_themes = len(df_heat)
         fig_heat.update_layout(
-            xaxis=dict(title="期間", side="top"),
-            yaxis=dict(title="テーマ", autorange="reversed"),
+            xaxis=dict(
+                side="top",
+                tickfont=dict(size=12, color="white"),
+                tickangle=0,          # 横向き固定（縦回転させない）
+                fixedrange=True,
+            ),
+            yaxis=dict(
+                autorange="reversed",
+                tickfont=dict(size=10, color="white"),
+                fixedrange=True,
+            ),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white", size=11),
-            height=max(550, len(df_heat)*28),
-            margin=dict(t=60, b=30, l=160, r=20),
+            font=dict(color="white"),
+            height=max(400, n_themes * 22),
+            margin=dict(t=40, b=10, l=140, r=55),
         )
-        st.plotly_chart(fig_heat, use_container_width=True, config=PLOT_CONFIG)
-        st.download_button("📥 ヒートマップCSV", df_heat.to_csv(encoding="utf-8-sig"),
+        st.plotly_chart(fig_heat, use_container_width=True,
+                        config={"displayModeBar": False, "staticPlot": False})
+
+        # 数値テーブル（スクロール可・コンパクト）
+        st.markdown("**📋 数値一覧（スクロール可）**")
+        df_disp = df_heat.copy()
+        df_disp.columns = short_labels
+        def fmt(v):
+            if v is None: return "N/A"
+            return f"+{v}%" if v > 0 else f"{v}%"
+        df_disp = df_disp.applymap(fmt)
+        st.dataframe(df_disp, use_container_width=True, height=min(600, n_themes*35+40))
+
+        st.download_button("📥 CSVダウンロード", df_heat.to_csv(encoding="utf-8-sig"),
                            f"ヒートマップ_{now}.csv", "text/csv")
 
+    # ============================================================
+    # タブ2：折れ線グラフ
+    # 凡例をグラフ下部に横並び（スマホで右側が切れない）
+    # ============================================================
     with tab_line:
-        st.markdown("**テーマを選択して推移を比較できます。**")
-
-        all_theme_names = df_heat.index.tolist()
-        period_cols = ["1週間","1ヶ月","3ヶ月","6ヶ月","1年"]
-
-        sorted_by_1m = df_heat["1ヶ月"].sort_values(ascending=False)
-
-        # ボタンで「プリセット選択キー」を設定し、multiselect のdefaultに反映
         if "hl_preset" not in st.session_state:
             st.session_state["hl_preset"] = sorted_by_1m.head(5).index.tolist()
 
-        col_sel1, col_sel2, col_sel3 = st.columns(3)
-        with col_sel1:
+        # プリセットボタン（3列）
+        c1, c2, c3 = st.columns(3)
+        with c1:
             if st.button("🔴 上昇TOP5", key="hl_top5"):
                 st.session_state["hl_preset"] = sorted_by_1m.head(5).index.tolist()
                 st.rerun()
-        with col_sel2:
+        with c2:
             if st.button("🟢 下落TOP5", key="hl_bot5"):
                 st.session_state["hl_preset"] = sorted_by_1m.tail(5).index.tolist()
                 st.rerun()
-        with col_sel3:
+        with c3:
             if st.button("📋 全テーマ", key="hl_all"):
                 st.session_state["hl_preset"] = all_theme_names
                 st.rerun()
 
         selected_line_themes = st.multiselect(
-            "表示するテーマを選択（複数OK・直接変更も可）",
+            "表示テーマを選択（複数OK）",
             all_theme_names,
             default=st.session_state["hl_preset"],
         )
 
         if selected_line_themes:
-            fig_line = go.Figure()
-
-            # カラーパレット（テーマ数が多くても区別しやすい色）
             color_palette = [
                 "#ff4b4b","#4b8bff","#ffd700","#39d353","#ff9900",
                 "#cc44ff","#00cccc","#ff69b4","#90ee90","#ff6347",
                 "#87ceeb","#dda0dd","#98fb98","#ffa07a","#20b2aa",
                 "#f0e68c","#add8e6","#ffb6c1","#7fffd4","#e6e6fa",
             ]
-
+            fig_line = go.Figure()
             for idx, theme_name in enumerate(selected_line_themes):
                 if theme_name not in df_heat.index: continue
-                values = [df_heat.loc[theme_name, col] for col in period_cols]
+                vals = [df_heat.loc[theme_name, col] for col in period_cols]
                 color = color_palette[idx % len(color_palette)]
                 fig_line.add_trace(go.Scatter(
-                    x=period_cols,
-                    y=values,
-                    mode="lines+markers",
-                    name=theme_name,
+                    x=period_cols, y=vals,
+                    mode="lines+markers", name=theme_name,
                     line=dict(color=color, width=2),
-                    marker=dict(size=8),
+                    marker=dict(size=7),
                     connectgaps=True,
                 ))
-
-            fig_line.add_hline(y=0, line_dash="dash", line_color="gray", line_width=1)
+            fig_line.add_hline(y=0, line_dash="dash", line_color="#666", line_width=1)
             fig_line.update_layout(
-                xaxis=dict(title="期間", categoryorder="array",
-                           categoryarray=period_cols),
-                yaxis=dict(title="騰落率（%）", ticksuffix="%"),
+                xaxis=dict(
+                    title="期間",
+                    categoryorder="array",
+                    categoryarray=period_cols,
+                    tickfont=dict(size=11),
+                ),
+                yaxis=dict(title="騰落率（%）", ticksuffix="%", tickfont=dict(size=11)),
                 plot_bgcolor="rgba(0,0,0,0)",
                 paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white", size=12),
-                height=500,
+                font=dict(color="white", size=11),
+                height=460,
+                # 凡例をグラフ下に横並び（スマホで右が切れない）
                 legend=dict(
-                    orientation="v",
-                    x=1.02, y=1,
-                    bgcolor="rgba(0,0,0,0.3)",
+                    orientation="h",
+                    x=0, y=-0.22,
+                    bgcolor="rgba(0,0,0,0)",
                     font=dict(size=10),
+                    itemwidth=80,
                 ),
-                margin=dict(t=40, b=50, l=70, r=180),
+                margin=dict(t=30, b=120, l=60, r=20),
             )
             st.plotly_chart(fig_line, use_container_width=True, config=PLOT_CONFIG)
 
-            # 選択テーマのデータ表
+            # 数値テーブル
             st.markdown("**📋 選択テーマの数値一覧**")
-            df_selected = df_heat.loc[selected_line_themes].copy()
-            # 数値に%をつけて表示
-            df_display_heat = df_selected.applymap(
-                lambda x: f"🔴 +{x}%" if x and x>0 else f"🟢 {x}%" if x else "N/A"
+            df_sel = df_heat.loc[selected_line_themes].copy()
+            df_sel = df_sel.applymap(
+                lambda x: f"🔴 +{x}%" if x and x > 0 else f"🟢 {x}%" if x else "N/A"
             )
-            st.dataframe(df_display_heat, use_container_width=True)
+            st.dataframe(df_sel, use_container_width=True)
         else:
-            st.info("上のセレクトボックスからテーマを選択してください")
+            st.info("上でテーマを選択してください")
 
 # =====================
 # テーマ比較
