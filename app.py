@@ -413,9 +413,10 @@ def load_theme_history() -> pd.DataFrame:
 # =====================
 def make_bar_chart(labels, values, colors, height=None, left_margin=None):
     """
-    ラベルを「順位部分＋テーマ名部分」に分解して固定幅表示。
-    ticktext に HTML は使えないため、ticklabelposition と ticklen で対応。
-    順位とテーマ名を <br> で改行せず、スペースパディングで揃える。
+    ランキングバーチャート。
+    ラベルを「順位（固定幅）」と「テーマ名」の2列に分離し、
+    annotationsで左端に順位を固定表示、yticksにテーマ名のみ表示。
+    これによりテーマ名の文字数に関係なく順位が常に左端で揃う。
     """
     if not values or not labels:
         fig = go.Figure()
@@ -425,24 +426,23 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None):
     n = len(values)
     h = height if height else max(200, n * 34)
 
-    # ラベルを「順位」と「テーマ名」に分割して固定幅に整形
-    # 例: "1位  EV・電気自動車" → 順位部分を右揃え固定幅4文字
-    formatted = []
+    # ラベルを「順位」と「テーマ名」に分割
+    rank_parts = []
+    name_parts = []
     for lbl in labels:
-        parts = lbl.split("　", 1) if "　" in lbl else lbl.split("  ", 1) if "  " in lbl else ["", lbl]
-        if len(parts) == 2:
-            rank_part = parts[0].strip()   # "1位"
-            name_part = parts[1].strip()   # "EV・電気自動車"
-            # 順位部分を固定幅4文字（右揃え）
-            rank_padded = rank_part.rjust(4)
-            formatted.append(f"{rank_padded}  {name_part}")
+        if "　" in lbl:
+            parts = lbl.split("　", 1)
+        elif "  " in lbl:
+            parts = lbl.split("  ", 1)
         else:
-            formatted.append(lbl)
+            parts = ["", lbl]
+        rank_parts.append(parts[0].strip() if len(parts) == 2 else "")
+        name_parts.append(parts[1].strip() if len(parts) == 2 else lbl)
 
-    # left_margin を自動計算（テーマ名の最大文字数に基づく）
-    max_label_len = max(len(l) for l in formatted)
-    auto_margin = max(160, max_label_len * 11)
-    lm = left_margin if left_margin else auto_margin
+    # left_marginはテーマ名の最大文字数で自動計算
+    max_name_len = max(len(n) for n in name_parts)
+    # 日本語1文字≒12px、余白込み
+    lm = left_margin if left_margin else max(130, max_name_len * 13 + 45)
 
     min_v = min(values)
     max_v = max(values)
@@ -458,6 +458,25 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None):
         textfont=dict(color="white", size=11),
         insidetextanchor="middle",
     ))
+
+    # yaxisのticktextはテーマ名のみ（右揃えでバーの左端に接する）
+    # 順位はannotationsで左端（x=-1のpaper座標）に固定配置
+    annotations = []
+    for i, (rank, name) in enumerate(zip(rank_parts, name_parts)):
+        if rank:
+            annotations.append(dict(
+                x=0,           # xref="paper"の左端
+                y=i,
+                xref="paper",
+                yref="y",
+                text=f"<b>{rank}</b>",
+                showarrow=False,
+                xanchor="right",
+                yanchor="middle",
+                font=dict(color="white", size=10, family="Arial"),
+                xshift=-8,    # テーマ名との間隔
+            ))
+
     fig.update_layout(
         xaxis=dict(
             title="騰落率（%）", ticksuffix="%",
@@ -469,10 +488,12 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None):
         yaxis=dict(
             tickmode="array",
             tickvals=list(range(n)),
-            ticktext=formatted,
+            ticktext=name_parts,   # テーマ名のみ
             autorange="reversed",
-            tickfont=dict(size=11, family="Courier New, monospace"),  # 等幅フォントで列が揃う
+            tickfont=dict(size=11),
+            ticklabelposition="outside",
         ),
+        annotations=annotations,
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white", size=11),
         height=h, bargap=0.2,
@@ -519,35 +540,49 @@ def make_price_chart(df, display_df, chart_type="ローソク足", show_ma=True)
     return fig
 
 def period_buttons(key_prefix="main"):
-    """期間ボタン：スマホ対応の小サイズボタン横並び"""
+    """
+    期間選択：PCはボタン横並び、スマホはセレクトボックス1行で表示。
+    st.columnsはスマホで縦並びになるため、JavaScript経由の幅判定はできない。
+    代わりにselectboxをコンパクトに配置し、全画面を占有しないよう制御。
+    """
     st.markdown("""
     <style>
-    div[data-testid="column"] div.stButton > button {
-        padding: 0.15em 0.2em !important;
-        font-size: 0.72em !important;
-        height: 2em !important;
-        min-width: 0 !important;
-        white-space: nowrap;
+    /* 期間選択セレクトボックスをコンパクトに */
+    div[data-testid="stSelectbox"] {
+        max-width: 200px !important;
     }
-    @media (min-width: 640px) {
-        div[data-testid="column"] div.stButton > button {
-            font-size: 0.88em !important;
-            height: 2.2em !important;
-        }
+    div[data-testid="stSelectbox"] > div {
+        min-height: 2em !important;
+    }
+    div[data-testid="stSelectbox"] label {
+        display: none !important;
     }
     </style>
     """, unsafe_allow_html=True)
-    cols = st.columns(len(PERIOD_OPTIONS))
-    for i, (label, code) in enumerate(PERIOD_OPTIONS.items()):
-        with cols[i]:
-            is_selected = st.session_state["selected_period"] == label
-            btn_label = f"✅{label}" if is_selected else label
-            if st.button(btn_label, key=f"pb_{key_prefix}_{label}",
-                         use_container_width=True):
-                st.session_state["selected_period"] = label
-                st.rerun()
-    st.caption(f"📅 選択中：**{st.session_state['selected_period']}**")
-    return PERIOD_OPTIONS[st.session_state["selected_period"]]
+
+    period_labels = list(PERIOD_OPTIONS.keys())
+    current = st.session_state.get("selected_period", "1ヶ月")
+    if current not in period_labels:
+        current = "1ヶ月"
+
+    col_sel, col_cap = st.columns([1, 3])
+    with col_sel:
+        selected = st.selectbox(
+            "期間",
+            period_labels,
+            index=period_labels.index(current),
+            key=f"period_sel_{key_prefix}",
+            label_visibility="collapsed",
+        )
+    with col_cap:
+        st.markdown(f"<div style='padding-top:0.5em; font-size:0.9em; color:#aaa;'>📅 選択中：<b>{selected}</b></div>",
+                    unsafe_allow_html=True)
+
+    if selected != current:
+        st.session_state["selected_period"] = selected
+        st.rerun()
+
+    return PERIOD_OPTIONS[selected]
 
 # =====================
 # ページ切り替え
