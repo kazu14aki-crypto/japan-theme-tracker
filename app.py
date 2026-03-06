@@ -633,10 +633,9 @@ def fetch_theme_trend(theme_keys, period="1y"):
 def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_labels=None):
     """
     ランキングバーチャート。
-    rank_labels: 順位テキストのリスト（Noneの場合はラベルにそのまま含まれる）
-    ラベルを「順位（固定幅）」と「テーマ名」の2列に分離し、
-    annotationsで左端に順位を固定表示、yticksにテーマ名のみ表示。
-    これによりテーマ名の文字数に関係なく順位が常に左端で揃う。
+    rank_labels: 順位番号リスト（文字列 or 数値）。
+                 指定時は順位をannotationsで色付き表示（1位=金・2位=銀・3位=銅・4位以下=グレー）
+                 Y軸ticktextはテーマ名のみ。
     """
     if not values or not labels:
         fig = go.Figure()
@@ -646,23 +645,20 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
     n = len(values)
     h = height if height else max(200, n * 34)
 
-    # ラベルを「順位」と「テーマ名」に分割
-    rank_parts = []
-    name_parts = []
-    for lbl in labels:
-        if "　" in lbl:
-            parts = lbl.split("　", 1)
-        elif "  " in lbl:
-            parts = lbl.split("  ", 1)
-        else:
-            parts = ["", lbl]
-        rank_parts.append(parts[0].strip() if len(parts) == 2 else "")
-        name_parts.append(parts[1].strip() if len(parts) == 2 else lbl)
+    # 順位色の定義
+    RANK_COLORS = {
+        1: "#FFD700",   # 金
+        2: "#C0C0C0",   # 銀
+        3: "#CD7F32",   # 銅
+    }
+    RANK_DEFAULT = "#7a8aaa"  # 4位以下
 
-    # left_marginはテーマ名の最大文字数で自動計算
-    max_name_len = max(len(n) for n in name_parts)
-    # 日本語1文字≒12px、余白込み
-    lm = left_margin if left_margin else max(130, max_name_len * 13 + 45)
+    # left_marginはテーマ名の最大文字数で計算
+    # rank_labelsがある場合は「XX位  」の幅（最大5文字程度）を加算
+    max_label_len = max(len(str(l)) for l in labels)
+    rank_prefix_len = 5 if rank_labels else 0  # 「10位  」≒5文字分
+    lm = left_margin if left_margin else max(140, (max_label_len + rank_prefix_len) * 11 + 20)
+    lm = min(lm, 280)
 
     min_v = min(values)
     max_v = max(values)
@@ -673,51 +669,52 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
         x=values,
         orientation="h",
         marker_color=colors,
-        text=[f" {v}%" for v in values],
+        text=[f" {v:+.2f}%" for v in values],
         textposition=text_positions,
         textfont=dict(color="white", size=11),
         insidetextanchor="middle",
+        cliponaxis=False,
     ))
 
-    # yaxisのticktextはテーマ名のみ（右揃えでバーの左端に接する）
-    # 順位はannotationsで左端（x=-1のpaper座標）に固定配置
+    # Y軸はテーマ名のみ（順位はannotationsで左に別描画）
     annotations = []
-    for i, (rank, name) in enumerate(zip(rank_parts, name_parts)):
-        if rank:
+    if rank_labels:
+        for i, r in enumerate(rank_labels):
+            rank_num = int(r)
+            rank_color = RANK_COLORS.get(rank_num, RANK_DEFAULT)
             annotations.append(dict(
-                x=0,           # xref="paper"の左端
+                x=-lm,           # xref="x domain"ではなくpixel offsetを使う
                 y=i,
                 xref="paper",
                 yref="y",
-                text=f"<b>{rank}</b>",
+                text=f"<b>{rank_num}位</b>",
                 showarrow=False,
-                xanchor="right",
+                xanchor="left",
                 yanchor="middle",
-                font=dict(color="white", size=10, family="Arial"),
-                xshift=-8,    # テーマ名との間隔
+                font=dict(color=rank_color, size=11, family="Arial"),
+                xshift=0,
             ))
 
     fig.update_layout(
         xaxis=dict(
             title="騰落率（%）", ticksuffix="%",
             zeroline=True, zerolinecolor="#555", zerolinewidth=1,
-            range=[min_v * 1.2 if min_v < 0 else -1,
-                   max_v * 1.2 if max_v > 0 else 1],
+            range=[min_v * 1.3 if min_v < 0 else -0.5,
+                   max_v * 1.3 if max_v > 0 else 0.5],
             tickfont=dict(size=10), title_font=dict(size=11),
         ),
         yaxis=dict(
             tickmode="array",
             tickvals=list(range(n)),
-            ticktext=name_parts,   # テーマ名のみ
+            ticktext=list(labels),   # テーマ名のみ
             autorange="reversed",
             tickfont=dict(size=11),
-            ticklabelposition="outside",
         ),
         annotations=annotations,
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white", size=11),
         height=h, bargap=0.2,
-        margin=dict(t=8, b=36, l=lm, r=16),
+        margin=dict(t=8, b=36, l=lm, r=60),
     )
     return fig
 
@@ -1075,35 +1072,41 @@ elif page == "💹 資金フロー":
     flow_sorted = sorted(flow_results, key=lambda x: x["平均騰落率(%)"], reverse=True)
     gainers = flow_sorted[:10]
     losers  = flow_sorted[-10:][::-1]
+    total   = len(flow_sorted)
 
     col_g, col_l = st.columns(2)
     with col_g:
         st.markdown("### 🔥 資金流入テーマ TOP10")
-        g_labels = [f"{i+1}位　{r['テーマ']}" for i, r in enumerate(gainers)]
+        g_labels = [r["テーマ"] for r in gainers]
+        g_ranks  = [str(i+1) for i in range(len(gainers))]
         g_values = [r["平均騰落率(%)"] for r in gainers]
         g_colors = ["#ff4b4b"] * len(gainers)
         st.plotly_chart(make_bar_chart(g_labels, g_values, g_colors,
-                                       height=max(200, len(gainers)*34)),
+                                       height=max(200, len(gainers)*38),
+                                       rank_labels=g_ranks),
                         use_container_width=True, config=PLOT_CONFIG)
 
     with col_l:
         st.markdown("### ❄️ 資金流出テーマ TOP10")
-        total = len(flow_sorted)
-        l_labels = [f"{total-len(losers)+i+1}位　{r['テーマ']}" for i, r in enumerate(losers)]
+        l_labels = [r["テーマ"] for r in losers]
+        l_ranks  = [str(total - len(losers) + i + 1) for i in range(len(losers))]
         l_values = [r["平均騰落率(%)"] for r in losers]
         l_colors = ["#39d353"] * len(losers)
         st.plotly_chart(make_bar_chart(l_labels, l_values, l_colors,
-                                       height=max(200, len(losers)*34)),
+                                       height=max(200, len(losers)*38),
+                                       rank_labels=l_ranks),
                         use_container_width=True, config=PLOT_CONFIG)
 
-    # 全テーマ騰落バブル的な横棒グラフ（全テーマ一覧）
+    # 全テーマ一覧
     st.markdown("---")
     st.markdown("**📊 全テーマ 騰落率一覧（資金フロー全景）**")
-    all_labels = [f"{i+1}位　{r['テーマ']}" for i, r in enumerate(flow_sorted)]
+    all_labels = [r["テーマ"] for r in flow_sorted]
+    all_ranks  = [str(i+1) for i in range(len(flow_sorted))]
     all_values = [r["平均騰落率(%)"] for r in flow_sorted]
     all_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in all_values]
     st.plotly_chart(make_bar_chart(all_labels, all_values, all_colors,
-                                   height=max(400, len(flow_sorted)*28)),
+                                   height=max(400, len(flow_sorted)*30),
+                                   rank_labels=all_ranks),
                     use_container_width=True, config=PLOT_CONFIG)
 
 # =====================
@@ -1900,7 +1903,7 @@ elif page == "📣 お知らせ":
 """, unsafe_allow_html=True)
 
 # =====================
-# カスタムテーマ（新機能）
+# カスタムテーマ
 # =====================
 elif page == "🏷️ カスタムテーマ":
     st.subheader("🏷️ カスタムテーマ作成・編集")
@@ -1909,52 +1912,195 @@ elif page == "🏷️ カスタムテーマ":
     tab1, tab2 = st.tabs(["➕ 新規作成", "✏️ 編集・削除"])
 
     with tab1:
-        st.markdown("#### 新しいテーマを作成")
-        new_theme_name = st.text_input("テーマ名", placeholder="例：マイお気に入り、注目銘柄...")
 
-        st.markdown("#### 銘柄を追加（銘柄名とティッカーコードを入力）")
-        st.caption("ティッカーコード例：トヨタ → 7203.T　ソニー → 6758.T")
-
+        # ── セッションステート初期化 ──
         if "new_stocks" not in st.session_state:
-            st.session_state["new_stocks"] = [{"name":"","ticker":""}]
+            st.session_state["new_stocks"] = []
+        if "ct_search_result" not in st.session_state:
+            st.session_state["ct_search_result"] = None  # {"name":..,"ticker":..,"price":..,...}
+        if "ct_search_query" not in st.session_state:
+            st.session_state["ct_search_query"] = ""
 
-        for i, stock in enumerate(st.session_state["new_stocks"]):
-            col1, col2, col3 = st.columns([2,2,1])
-            with col1:
-                st.session_state["new_stocks"][i]["name"] = st.text_input(
-                    f"銘柄名 {i+1}", value=stock["name"], key=f"ns_name_{i}",
-                    placeholder="例：トヨタ")
-            with col2:
-                st.session_state["new_stocks"][i]["ticker"] = st.text_input(
-                    f"ティッカー {i+1}", value=stock["ticker"], key=f"ns_ticker_{i}",
-                    placeholder="例：7203.T")
-            with col3:
-                st.write("")
-                st.write("")
-                if st.button("削除", key=f"ns_del_{i}") and len(st.session_state["new_stocks"]) > 1:
-                    st.session_state["new_stocks"].pop(i)
+        st.markdown("#### 📌 テーマ名")
+        new_theme_name = st.text_input("テーマ名", placeholder="例：マイ注目銘柄、AIテーマ...",
+                                        label_visibility="collapsed")
+
+        st.markdown("---")
+        st.markdown("#### 🔎 銘柄を検索して追加")
+        st.caption("銘柄名（例：トヨタ）または証券コード4桁（例：7203）で検索")
+
+        # 検索バー
+        search_col, btn_col = st.columns([4, 1])
+        with search_col:
+            ct_query = st.text_input(
+                "銘柄名 or 証券コード",
+                placeholder="銘柄名 or 証券コード（例：7203 / トヨタ）",
+                label_visibility="collapsed",
+                key="ct_search_input",
+            )
+        with btn_col:
+            st.write("")
+            do_search = st.button("🔍 検索", key="ct_search_btn", use_container_width=True)
+
+        # 検索実行
+        if do_search and ct_query:
+            ct_query_stripped = ct_query.strip()
+            # 証券コード4桁の場合は .T を補完
+            if ct_query_stripped.isdigit() and len(ct_query_stripped) == 4:
+                search_ticker = ct_query_stripped + ".T"
+                # all_stocksからticker一致を探す
+                matched_name = next(
+                    (name for name, t in all_stocks.items() if t == search_ticker), None
+                )
+                if matched_name:
+                    search_targets = {matched_name: search_ticker}
+                else:
+                    # DBにない場合もティッカーとして直接取得を試みる
+                    search_targets = {ct_query_stripped: search_ticker}
+            else:
+                # 銘柄名部分一致
+                search_targets = {
+                    name: ticker for name, ticker in all_stocks.items()
+                    if ct_query_stripped in name
+                }
+
+            if not search_targets:
+                st.warning("該当する銘柄が見つかりませんでした。証券コード4桁または銘柄名で再検索してください。")
+                st.session_state["ct_search_result"] = None
+            else:
+                # 最初にヒットした銘柄のデータを取得
+                found_name, found_ticker = next(iter(search_targets.items()))
+                with st.spinner(f"{found_name} のデータ取得中..."):
+                    try:
+                        df_ct = fetch_stock_data(found_ticker, "2y")
+                        if len(df_ct) >= 2:
+                            target_ct = get_target_df(df_ct, "1mo")
+                            change_ct = calc_change(target_ct)
+                            price_ct = int(df_ct["Close"].iloc[-1])
+                            day_c_ct = round(
+                                (df_ct["Close"].iloc[-1] - df_ct["Close"].iloc[-2])
+                                / df_ct["Close"].iloc[-2] * 100, 2
+                            )
+                            rsi_ct = round(calc_rsi(df_ct["Close"]).iloc[-1], 1) if len(df_ct) >= 15 else None
+                            code_ct = found_ticker.replace(".T", "")
+                            st.session_state["ct_search_result"] = {
+                                "name": found_name,
+                                "ticker": found_ticker,
+                                "code": code_ct,
+                                "price": price_ct,
+                                "change": change_ct,
+                                "day_change": day_c_ct,
+                                "rsi": rsi_ct,
+                                "hit_count": len(search_targets),
+                                "all_hits": list(search_targets.items()),
+                            }
+                        else:
+                            st.warning("データを取得できませんでした。")
+                            st.session_state["ct_search_result"] = None
+                    except Exception as e:
+                        st.error(f"データ取得エラー：{e}")
+                        st.session_state["ct_search_result"] = None
+
+        # ── 検索結果の表示 ──
+        res = st.session_state.get("ct_search_result")
+        if res:
+            st.markdown("---")
+            st.markdown("**📊 銘柄詳細**")
+
+            # 複数ヒット時は選択できるように
+            if res["hit_count"] > 1:
+                hit_names = [n for n, _ in res["all_hits"]]
+                sel_name = st.selectbox("複数の銘柄がヒットしました。選択してください：",
+                                         hit_names, key="ct_hit_select")
+                if sel_name != res["name"]:
+                    # 選択が変わったら再取得
+                    sel_ticker = dict(res["all_hits"])[sel_name]
+                    with st.spinner(f"{sel_name} のデータ取得中..."):
+                        try:
+                            df_sel = fetch_stock_data(sel_ticker, "2y")
+                            if len(df_sel) >= 2:
+                                t_sel = get_target_df(df_sel, "1mo")
+                                res = {
+                                    "name": sel_name,
+                                    "ticker": sel_ticker,
+                                    "code": sel_ticker.replace(".T",""),
+                                    "price": int(df_sel["Close"].iloc[-1]),
+                                    "change": calc_change(t_sel),
+                                    "day_change": round(
+                                        (df_sel["Close"].iloc[-1]-df_sel["Close"].iloc[-2])
+                                        /df_sel["Close"].iloc[-2]*100, 2),
+                                    "rsi": round(calc_rsi(df_sel["Close"]).iloc[-1],1) if len(df_sel)>=15 else None,
+                                    "hit_count": res["hit_count"],
+                                    "all_hits": res["all_hits"],
+                                }
+                                st.session_state["ct_search_result"] = res
+                        except:
+                            pass
+
+            # 銘柄詳細カード
+            d_col1, d_col2, d_col3, d_col4 = st.columns(4)
+            d_col1.metric("銘柄名", res["name"])
+            d_col2.metric("証券コード", res["code"])
+            d_col3.metric("株価", f"¥{res['price']:,}")
+            sign = "+" if res["change"] and res["change"] >= 0 else ""
+            d_col4.metric("騰落率(1ヶ月)", f"{sign}{res['change']}%" if res["change"] else "N/A")
+
+            d_col5, d_col6, d_col7, _ = st.columns(4)
+            dc = res["day_change"]
+            d_col5.metric("前日比", f"{'+'if dc and dc>=0 else ''}{dc}%" if dc else "N/A")
+            d_col6.metric("RSI", f"{res['rsi']}" if res["rsi"] else "N/A")
+            d_col7.metric("ティッカー", res["ticker"])
+
+            # 追加ボタン
+            already = any(s["ticker"] == res["ticker"]
+                          for s in st.session_state["new_stocks"])
+            if already:
+                st.info(f"✅ **{res['name']}** はすでにリストに追加済みです。")
+            else:
+                if st.button(f"＋ 「{res['name']}」をテーマに追加",
+                              type="primary", key="ct_add_btn"):
+                    st.session_state["new_stocks"].append({
+                        "name": res["name"],
+                        "ticker": res["ticker"],
+                    })
+                    st.success(f"「{res['name']}」を追加しました！")
+                    st.session_state["ct_search_result"] = None
                     st.rerun()
 
-        if st.button("➕ 銘柄を追加"):
-            st.session_state["new_stocks"].append({"name":"","ticker":""})
-            st.rerun()
+        # ── 追加済み銘柄リスト ──
+        if st.session_state["new_stocks"]:
+            st.markdown("---")
+            st.markdown(f"**📋 追加済み銘柄（{len(st.session_state['new_stocks'])}件）**")
+            for i, stock in enumerate(st.session_state["new_stocks"]):
+                r_col1, r_col2, r_col3 = st.columns([3, 2, 1])
+                with r_col1:
+                    st.write(f"**{stock['name']}**")
+                with r_col2:
+                    st.caption(stock["ticker"])
+                with r_col3:
+                    if st.button("🗑️", key=f"ns_del_{i}",
+                                  help=f"{stock['name']}を削除"):
+                        st.session_state["new_stocks"].pop(i)
+                        st.rerun()
 
-        if st.button("✅ テーマを保存", type="primary"):
+        st.markdown("---")
+        # ── テーマ保存 ──
+        if st.button("✅ テーマを保存", type="primary", key="ct_save_btn"):
             if not new_theme_name:
                 st.error("テーマ名を入力してください")
             elif new_theme_name in DEFAULT_THEMES:
                 st.error("デフォルトテーマと同じ名前は使えません")
+            elif not st.session_state["new_stocks"]:
+                st.error("銘柄を1つ以上追加してください")
             else:
                 valid_stocks = {s["name"]: s["ticker"]
                                 for s in st.session_state["new_stocks"]
                                 if s["name"] and s["ticker"]}
-                if not valid_stocks:
-                    st.error("銘柄を1つ以上入力してください")
-                else:
-                    st.session_state["custom_themes"][new_theme_name] = valid_stocks
-                    st.session_state["new_stocks"] = [{"name":"","ticker":""}]
-                    st.success(f"「{new_theme_name}」を保存しました！テーマ一覧に反映されます。")
-                    st.rerun()
+                st.session_state["custom_themes"][new_theme_name] = valid_stocks
+                st.session_state["new_stocks"] = []
+                st.session_state["ct_search_result"] = None
+                st.success(f"「{new_theme_name}」を保存しました！テーマ一覧に反映されます。")
+                st.rerun()
 
     with tab2:
         if not st.session_state["custom_themes"]:
