@@ -542,6 +542,7 @@ def _fetch_single_stock(args):
 
 @st.cache_data(ttl=_get_ttl())
 def fetch_all_theme_data(period: str, theme_keys: tuple) -> tuple:
+    _cache_created = (_dt2.datetime.utcnow() + _dt2.timedelta(hours=9)).strftime("%H:%M")
     themes = get_all_themes()
     theme_results = []
     theme_details = {}
@@ -578,7 +579,7 @@ def fetch_all_theme_data(period: str, theme_keys: tuple) -> tuple:
             theme_details[theme_name] = details
 
     theme_results.sort(key=lambda x: x["平均騰落率(%)"], reverse=True)
-    return theme_results, theme_details
+    return theme_results, theme_details, _cache_created
 
 # =====================
 # =====================
