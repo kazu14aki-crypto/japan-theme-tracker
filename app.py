@@ -876,7 +876,6 @@ for stk in themes.values():
 # =====================
 if page == "📊 テーマ一覧":
     now = _get_now_str()
-    st.caption(f"🕐 現在時刻：{now}　｜　📦 データ更新：{_cache_time}　　{len(themes)}テーマ・約{len(all_stocks)}銘柄")
 
     # 期間ボタン（上部）
     period = period_buttons(key_prefix="home")
@@ -891,6 +890,9 @@ if page == "📊 テーマ一覧":
     theme_keys = tuple(themes.keys())
     with st.spinner("データを取得中...（初回は時間がかかります）"):
         theme_results, theme_details, _cache_time = fetch_all_theme_data(period, theme_keys)
+
+    # データ取得後に現在時刻・更新時刻を表示（_cache_time定義後）
+    st.caption(f"🕐 現在時刻：{now}　｜　📦 データ更新：{_cache_time}　　{len(themes)}テーマ・約{len(all_stocks)}銘柄")
 
     # 表示件数に応じて上位・下位を切り出し
     n = display_count if display_count < 99 else len(theme_results)
