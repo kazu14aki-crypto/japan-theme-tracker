@@ -861,7 +861,10 @@ st.sidebar.markdown(f"**{_market_status}**")
 st.sidebar.caption(f"🔄 更新頻度：約{_ttl_min}分ごと")
 st.sidebar.caption(f"🕐 現在時刻(JST)：{_now_jst.strftime('%H:%M')}")
 
-now = datetime.now().strftime("%Y年%m月%d日 %H:%M")
+# now は毎回リアルタイムで現在時刻を取得（キャッシュに依存しない）
+def _get_now_str():
+    return (_dt2.datetime.utcnow() + _dt2.timedelta(hours=9)).strftime("%Y年%m月%d日 %H:%M")
+now = _get_now_str()
 themes = get_all_themes()
 all_stocks = {}
 for stk in themes.values():
@@ -872,7 +875,8 @@ for stk in themes.values():
 # テーマ一覧
 # =====================
 if page == "📊 テーマ一覧":
-    st.caption(f"🕐 最終更新：{now}　　{len(themes)}テーマ・約{len(all_stocks)}銘柄")
+    now = _get_now_str()
+    st.caption(f"🕐 現在時刻：{now}　｜　📦 データ更新：{_cache_time}　　{len(themes)}テーマ・約{len(all_stocks)}銘柄")
 
     # 期間ボタン（上部）
     period = period_buttons(key_prefix="home")
@@ -886,7 +890,7 @@ if page == "📊 テーマ一覧":
 
     theme_keys = tuple(themes.keys())
     with st.spinner("データを取得中...（初回は時間がかかります）"):
-        theme_results, theme_details = fetch_all_theme_data(period, theme_keys)
+        theme_results, theme_details, _cache_time = fetch_all_theme_data(period, theme_keys)
 
     # 表示件数に応じて上位・下位を切り出し
     n = display_count if display_count < 99 else len(theme_results)
@@ -985,9 +989,9 @@ elif page == "📡 騰落モメンタム":
 
     theme_keys = tuple(themes.keys())
     with st.spinner("データ取得中..."):
-        results_now, _  = fetch_all_theme_data(period, theme_keys)
-        results_1w, _   = fetch_all_theme_data("5d",  theme_keys)
-        results_1m, _   = fetch_all_theme_data("1mo", theme_keys)
+        results_now, _, _ct1 = fetch_all_theme_data(period, theme_keys)
+        results_1w, _, _ct2 = fetch_all_theme_data("5d",  theme_keys)
+        results_1m, _, _ct3 = fetch_all_theme_data("1mo", theme_keys)
 
     # 辞書化
     now_map = {r["テーマ"]: r["平均騰落率(%)"] for r in results_now}
@@ -1063,7 +1067,7 @@ elif page == "💹 資金フロー":
 
     theme_keys = tuple(themes.keys())
     with st.spinner("データ取得中..."):
-        flow_results, _ = fetch_all_theme_data(period, theme_keys)
+        flow_results, _, _ct_flow = fetch_all_theme_data(period, theme_keys)
 
     flow_sorted = sorted(flow_results, key=lambda x: x["平均騰落率(%)"], reverse=True)
     gainers = flow_sorted[:10]
@@ -1104,7 +1108,7 @@ elif page == "💹 資金フロー":
 # =====================
 elif page == "📈 騰落推移":
     st.subheader("📈 テーマ別 騰落率の推移")
-    st.caption(f"🕐 最終更新：{now}　|　yfinanceの日次終値から算出（スプレッドシート不要）")
+    st.caption(f"🕐 現在時刻：{_get_now_str()}　|　yfinanceの日次終値から算出（スプレッドシート不要）")
 
     # 期間選択
     trend_period = st.selectbox(
@@ -1234,7 +1238,7 @@ elif page == "📈 騰落推移":
 # =====================
 elif page == "🔥 ヒートマップ":
     st.subheader("🔥 テーマ別騰落率 ヒートマップ")
-    st.caption(f"🕐 最終更新：{now}")
+    st.caption(f"🕐 現在時刻：{_get_now_str()}")
 
     # --- データ取得: 期間比較ヒートマップ ---
     @st.cache_data(ttl=_get_ttl())
@@ -1715,12 +1719,12 @@ elif page == "⭐ お気に入り":
 # =====================
 elif page == "🔍 テーマ別詳細":
     st.subheader("🔍 テーマ別詳細")
-    st.caption(f"🕐 最終更新：{now}")
+    st.caption(f"🕐 現在時刻：{_get_now_str()}")
     period = period_buttons(key_prefix="theme_detail")
 
     theme_keys = tuple(themes.keys())
     with st.spinner("データ取得中..."):
-        td_results, td_details = fetch_all_theme_data(period, theme_keys)
+        td_results, td_details, _cache_time_td = fetch_all_theme_data(period, theme_keys)
 
     # テーマ選択
     theme_name_list = [r["テーマ"] for r in td_results]
