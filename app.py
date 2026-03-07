@@ -506,21 +506,24 @@ def get_all_themes():
 PLOT_CONFIG = {"displayModeBar": False, "staticPlot": True}
 
 # 期間ボタン設定
-def get_period_options() -> dict:
-    """現在の言語設定に従って期間ラベル→yfinance期間文字列の辞書を返す"""
-    return {
-        t("period_1d"):  "1d",
-        t("period_1w"):  "5d",
-        t("period_1m"):  "1mo",
-        t("period_3m"):  "3mo",
-        t("period_6m"):  "6mo",
-        t("period_1y"):  "1y",
-        t("period_18m"): "18mo",
-        t("period_2y"):  "2y",
-    }
+# 期間のyfinance値マッピング（言語に依存しない内部マスター）
+_PERIOD_YFINANCE = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "18mo", "2y"]
+_PERIOD_I18N_KEYS = [
+    "period_1d", "period_1w", "period_1m", "period_3m",
+    "period_6m", "period_1y", "period_18m", "period_2y",
+]
 
-# 後方互換用エイリアス（既存コードの PERIOD_OPTIONS 参照のため）
-PERIOD_OPTIONS = get_period_options()
+def get_period_options() -> dict:
+    """現在の言語設定に従って期間ラベル→yfinance期間文字列の辞書を返す。
+    t()はI18N定義後に呼ばれる前提で、period_buttonsや各ページから呼ぶこと。"""
+    lang = st.session_state.get("app_language", "ja")
+    _labels_ja = ["1日","1週間","1ヶ月","3ヶ月","6ヶ月","1年","1年半","2年"]
+    _labels_en = ["1D","1W","1M","3M","6M","1Y","18M","2Y"]
+    labels = _labels_en if lang == "en" else _labels_ja
+    return dict(zip(labels, _PERIOD_YFINANCE))
+
+# 後方互換用（ページ描画時に動的に生成されるため、ここでは空dict）
+PERIOD_OPTIONS = {}  # period_buttons()内で get_period_options() を呼んで上書きされる
 
 # =====================
 # ユーティリティ関数
