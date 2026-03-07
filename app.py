@@ -118,24 +118,35 @@ section[data-testid="stSidebar"] * {{
     color: {_c['text_primary']} !important;
 }}
 
-/* ── メインエリアのテキスト全般 ── */
-.stApp, .stApp * {{
-    color: {_c['text_primary']};
-}}
-.stMarkdown, .stMarkdown * {{
+/* ── メインエリアのテキスト全般（Plotly SVG要素は除外） ── */
+.stMarkdown, .stMarkdown p, .stMarkdown li, .stMarkdown span {{
     color: {_c['text_primary']} !important;
 }}
-p, li, span, label, div {{
+p:not(.js-plotly-plot p):not([class*="plotly"] p) {{
+    color: {_c['text_primary']};
+}}
+label:not(.js-plotly-plot label) {{
     color: {_c['text_primary']};
 }}
 h1, h2, h3, h4, h5, h6 {{
     color: {_c['text_primary']} !important;
 }}
+/* Streamlit固有のテキスト要素 */
+[data-testid="stMarkdownContainer"] * {{
+    color: {_c['text_primary']};
+}}
+[data-testid="stText"] {{
+    color: {_c['text_primary']};
+}}
+[data-testid="stCaptionContainer"] * {{
+    color: {_c['text_secondary']} !important;
+}}
 
-/* ── メトリクス・キャプション ── */
+/* ── メトリクス ── */
 [data-testid="metric-container"] * {{
     color: {_c['text_primary']} !important;
 }}
+/* ── キャプション ── */
 .stCaption, .stCaption * {{
     color: {_c['text_secondary']} !important;
 }}
