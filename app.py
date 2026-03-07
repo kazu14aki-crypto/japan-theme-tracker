@@ -745,11 +745,11 @@ def fetch_all_theme_data(period: str, theme_keys: tuple) -> tuple:
             })
             theme_details[theme_name] = details
 
-theme_results.sort(key=lambda x: x["平均騰落率(%)"], reverse=True)
-    # 💡 ここで順位を各データに追加します
-    for i, res in enumerate(theme_results):
-        res["順位"] = i + 1
-    return theme_results, theme_details, _cache_created
+            theme_results.sort(key=lambda x: x["平均騰落率(%)"], reverse=True)
+            # 💡 ここで順位を各データに追加します
+            for i, res in enumerate(theme_results):
+                res["順位"] = i + 1
+            return theme_results, theme_details, _cache_created
 
 # =====================
 # =====================
@@ -2982,4 +2982,5 @@ st.markdown(
     f"</div>",
     unsafe_allow_html=True
 )
+
 
