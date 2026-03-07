@@ -1380,6 +1380,10 @@ For informational purposes only — not investment advice.""",
     "download_heatmap_csv":  {"ja": "📥 CSV",                    "en": "📥 CSV"},
     "trend_rank_title_fmt":  {"ja": "**📋 テーマ騰落率ランキング（{}）**",
                               "en": "**📋 Theme Return Ranking ({})**"},
+    # ─── テーブル列名 ───
+    "stock_col":             {"ja": "銘柄",     "en": "Stock"},
+    "price_col":             {"ja": "株価",     "en": "Price"},
+    "day_change_col":        {"ja": "前日比",   "en": "Day Chg"},
 }
 
 def t(key: str) -> str:
@@ -1582,7 +1586,7 @@ if pidx == PAGE_THEME_LIST:
         show_v = st.session_state["show_vol_all"]
         disp_vol = vol_sorted_all if show_v else vol_sorted_all[:5]
         vol_rows = [
-            {"順位": f"{i+1}位", "テーマ": r["テーマ"], "出来高": f"{int(r['合計出来高']):,}"}
+            {t("rank_col"): t("rank_suffix").format(i+1), t("theme_col"): tn(r["テーマ"]), t("volume_col"): f"{int(r['合計出来高']):,}"}
             for i, r in enumerate(disp_vol)
         ]
         st.dataframe(pd.DataFrame(vol_rows).set_index(t("rank_col")), use_container_width=True)
