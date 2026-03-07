@@ -817,6 +817,8 @@ PAGES = [
     "⭐ お気に入り",
     "🏷️ カスタムテーマ",
     "📣 お知らせ",
+    "📖 使い方・Q&A",
+    "⚖️ 免責事項",
 ]
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = PAGES[0]
@@ -858,6 +860,15 @@ else:
 st.sidebar.markdown(f"**{_market_status}**")
 st.sidebar.caption(f"🔄 更新頻度：約{_ttl_min}分ごと")
 st.sidebar.caption(f"🕐 現在時刻(JST)：{_now_jst.strftime('%H:%M')}")
+st.sidebar.markdown("---")
+st.sidebar.markdown(
+    "<div style='font-size:10px;color:#3a4560;text-align:center;line-height:1.8;'>"
+    "© 2026 StockWaveJP<br>"
+    "本サービスは情報提供のみを目的とします。<br>"
+    "投資判断はご自身の責任で行ってください。"
+    "</div>",
+    unsafe_allow_html=True
+)
 
 # now は毎回リアルタイムで現在時刻を取得（キャッシュに依存しない）
 def _get_now_str():
@@ -2124,3 +2135,143 @@ elif page == "🏷️ カスタムテーマ":
                             del st.session_state["custom_themes"][ct_name]
                             st.success(f"「{ct_name}」を削除しました")
                             st.rerun()
+
+
+# =====================
+# 使い方・Q&A
+# =====================
+elif page == "📖 使い方・Q&A":
+    st.subheader("📖 使い方・Q&A")
+
+    st.markdown("""
+<div style="background:#0d1020;border:1px solid #1a1e30;border-radius:12px;padding:20px 22px;margin-bottom:16px;">
+  <div style="font-size:16px;font-weight:700;margin-bottom:12px;color:#e8eaf0;">🚀 StockWaveJP とは</div>
+  <div style="font-size:13px;color:#8090a8;line-height:1.9;">
+    StockWaveJP は、日本株のテーマ別騰落率・資金フロー・モメンタムを可視化する<b style="color:#e8eaf0;">無料の株式情報ツール</b>です。<br>
+    約30テーマ・250銘柄以上のデータをリアルタイムに近い形で集計・表示します。<br>
+    投資判断の参考情報として活用してください（投資助言ではありません）。
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    # 使い方
+    st.markdown("### 📌 各ページの使い方")
+    guide_items = [
+        ("📊 テーマ一覧",      "期間を選択して上位・下位テーマの騰落率ランキングを確認できます。表示テーマ数は5〜全件で切り替え可能です。"),
+        ("📡 騰落モメンタム",  "現在の騰落率に加え、先週比・先月比の変化量（ポイント）を表示。🔥加速・❄️失速など状態ラベルで相場の勢いを把握できます。"),
+        ("💹 資金フロー",      "資金流入TOP10・流出TOP10を左右で比較。全テーマの騰落率一覧も確認できます。"),
+        ("📈 騰落推移",        "過去1年分のテーマ別騰落率の時系列推移をグラフ表示。上位5テーマ／手動選択／全テーマを切り替えられます。"),
+        ("🔥 ヒートマップ",    "テーマ×期間のヒートマップで、どのテーマがいつ強かったかを一目で把握できます。"),
+        ("📉 テーマ比較",      "複数テーマを選んで騰落率を直接比較できます。"),
+        ("🌍 マクロ比較",      "日経平均・TOPIX・米国指数（S&P500・NASDAQ）と各テーマを比較します。"),
+        ("📋 市場別ランキング","日経225・TOPIX100・東証プライムなど市場セグメント別の騰落率ランキングです。"),
+        ("🔍 テーマ別詳細",    "テーマを選択すると構成銘柄の個別騰落率・出来高ランキング・RSIなどを確認できます。"),
+        ("⭐ お気に入り",      "テーマ別詳細ページで「☆ 登録」した銘柄をまとめて確認できます。"),
+        ("🏷️ カスタムテーマ",  "銘柄名または証券コード4桁で検索して自分だけのテーマを作成できます。"),
+    ]
+    for icon_title, desc in guide_items:
+        st.markdown(f"""
+<div style="border-left:3px solid #ff4b4b;padding:8px 14px;margin-bottom:10px;background:#0d1020;border-radius:0 8px 8px 0;">
+  <div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:3px;">{icon_title}</div>
+  <div style="font-size:12px;color:#8090a8;line-height:1.7;">{desc}</div>
+</div>
+""", unsafe_allow_html=True)
+
+    # Q&A
+    st.markdown("---")
+    st.markdown("### ❓ よくある質問（Q&A）")
+    qa_items = [
+        ("データはどこから取得していますか？",
+         "Yahoo! Finance の公開データをyfinanceライブラリ経由で取得しています。リアルタイムではなく、市場開場中は約3分、時間外は約30〜60分のキャッシュが適用されます。"),
+        ("表示される「現在時刻」と「データ更新」の違いは何ですか？",
+         "「現在時刻」はページを開いた瞬間の時刻です。「データ更新」はキャッシュが最後に生成された時刻で、実際のデータ取得時刻を示します。差分がキャッシュの経過時間です。"),
+        ("データが古い・更新されない場合はどうすればいいですか？",
+         "サイドバー下部の「🔄 データを最新に更新」ボタンを押してください。キャッシュがクリアされ、最新データが取得されます。"),
+        ("証券コードで検索する方法は？",
+         "カスタムテーマページの検索バーに4桁の証券コード（例：7203）を入力して検索してください。「.T」は自動で補完されます。"),
+        ("お気に入りはどこに保存されますか？",
+         "現在はブラウザのセッション中のみ保持されます。ページを閉じたり更新すると消えます。将来的にはローカル保存機能の追加を検討しています。"),
+        ("掲載されていないテーマ・銘柄を追加できますか？",
+         "「🏷️ カスタムテーマ」ページから、任意の銘柄でオリジナルテーマを作成できます。証券コードがわかれば掲載外の銘柄も追加可能です。"),
+        ("スマホでも使えますか？",
+         "はい、スマートフォンブラウザに対応しています。画面サイズに合わせてレイアウトが調整されます。"),
+    ]
+    for q, a in qa_items:
+        with st.expander(f"Q. {q}"):
+            st.markdown(f"**A.** {a}")
+
+    st.markdown("---")
+    st.markdown(
+        "<div style='font-size:11px;color:#3a4560;text-align:center;padding:8px;'>"
+        "ご要望・不具合報告は GitHubのIssues または お問い合わせフォームからお寄せください。"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
+# =====================
+# 免責事項
+# =====================
+elif page == "⚖️ 免責事項":
+    st.subheader("⚖️ 免責事項・利用規約")
+
+    sections = [
+        ("📋 サービス概要", """
+StockWaveJP（以下「本サービス」）は、日本株式市場に関するテーマ別の騰落率・資金フロー・モメンタム等の
+統計情報を提供する情報サービスです。本サービスはいかなる意味においても投資助言・投資推奨を行うものではありません。
+        """),
+        ("⚠️ 投資に関する免責", """
+・本サービスで提供する情報はすべて情報提供のみを目的としており、特定の有価証券の売買を推奨・勧誘するものではありません。\n
+・投資に関する最終判断はご自身の責任において行ってください。\n
+・本サービスの情報を参考にした投資行動により生じた損失・損害について、StockWaveJP および開発者は一切の責任を負いません。\n
+・株式投資には元本割れのリスクがあります。過去の騰落率は将来の運用成果を保証するものではありません。
+        """),
+        ("📡 データの正確性について", """
+・本サービスのデータはYahoo! Finance（yfinanceライブラリ経由）から取得しており、データの正確性・完全性・最新性を保証するものではありません。\n
+・データの遅延・欠損・誤りが生じる場合があります。重要な投資判断には必ず公式情報源をご確認ください。\n
+・yfinanceはYahoo! Financeの非公式APIであり、サービス変更により突然利用できなくなる可能性があります。
+        """),
+        ("🔒 個人情報・プライバシー", """
+・本サービスはユーザー登録不要で利用できます。\n
+・お気に入り・カスタムテーマ等のデータはブラウザのセッション内にのみ保持され、外部サーバーへの送信は行いません。\n
+・アクセス解析のため、Streamlit Cloudの標準的なログ収集が行われる場合があります。
+        """),
+        ("📜 著作権・知的財産", """
+・本サービスのデザイン・ロゴ・コード・コンテンツの著作権はStockWaveJPに帰属します。\n
+・無断での複製・転載・改変・商業利用を禁止します。\n
+・「StockWaveJP」「株式波動」の名称・ロゴは商標登録出願中です。
+        """),
+        ("🔄 サービスの変更・終了", """
+・本サービスは予告なく内容の変更・機能の追加・削除・サービスの停止を行う場合があります。\n
+・これらにより生じた損害について、StockWaveJP および開発者は責任を負いません。
+        """),
+        ("📅 制定・改定", """
+・本免責事項は2026年3月に制定しました。\n
+・内容は予告なく改定される場合があります。改定後も引き続き本サービスを利用された場合、改定後の内容に同意したものとみなします。
+        """),
+    ]
+
+    for title, body in sections:
+        st.markdown(f"""
+<div style="border:1px solid #1a1e30;border-radius:10px;padding:16px 18px;margin-bottom:14px;background:#0d1020;">
+  <div style="font-size:14px;font-weight:700;color:#e8eaf0;margin-bottom:8px;">{title}</div>
+  <div style="font-size:12px;color:#8090a8;line-height:1.9;white-space:pre-line;">{body.strip()}</div>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown(
+        "<div style='text-align:center;font-size:11px;color:#3a4560;margin-top:24px;padding:12px;"
+        "border-top:1px solid #1a1e30;'>"
+        "© 2026 StockWaveJP　|　本サービスは情報提供のみを目的とします。<br>"
+        "投資に関する最終判断はご自身の責任においてお願いします。"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
+# ── メインエリア フッター（全ページ共通・分岐の外側） ──
+st.markdown("---")
+st.markdown(
+    "<div style='text-align:center;font-size:11px;color:#2a3550;padding:6px 0 4px;'>"
+    "© 2026 StockWaveJP　|　本サービスは情報提供のみを目的とします。投資判断はご自身の責任で行ってください。"
+    "</div>",
+    unsafe_allow_html=True
+)
