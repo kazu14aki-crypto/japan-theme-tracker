@@ -1035,9 +1035,9 @@ I18N = {
     "momentum_caption":      {"ja": "現在の騰落率 ＋ 先週比・先月比の変化で「加速・失速・転換」テーマを一目で把握",
                               "en": "Identify accelerating, decelerating, and reversing themes using current return + weekly/monthly changes."},
     "sort_label":            {"ja": "並び替え",                 "en": "Sort by"},
-    "sort_return":           {"ja": "騰落率（高→低）",          "en": "Return (High→Low)"},
-    "sort_weekly":           {"ja": "先週比変化（大→小）",       "en": "Weekly Change (High→Low)"},
-    "sort_monthly":          {"ja": "先月比変化（大→小）",       "en": "Monthly Change (High→Low)"},
+    "sort_return":           {"ja": "騰落率（降順）",            "en": "Return (Desc)"},
+    "sort_weekly":           {"ja": "先週比変化（降順）",         "en": "Weekly Change (Desc)"},
+    "sort_monthly":          {"ja": "先月比変化（降順）",         "en": "Monthly Change (Desc)"},
     "filter_state":          {"ja": "状態フィルター（空=全表示）", "en": "State Filter (empty=all)"},
     "state_accel":           {"ja": "🔥加速",                   "en": "🔥Accelerating"},
     "state_up":              {"ja": "↗転換↑",                  "en": "↗Reversing↑"},
@@ -1646,16 +1646,16 @@ elif pidx == PAGE_MOMENTUM:
 
     # モメンタムデータ組み立て
     momentum_data = []
-    for tn in now_map:
-        cur   = now_map.get(tn, 0)
-        dw    = round(cur - w1_map.get(tn, cur), 2)
-        dm    = round(cur - m1_map.get(tn, cur), 2)
+    for theme_n in now_map:
+        cur   = now_map.get(theme_n, 0)
+        dw    = round(cur - w1_map.get(theme_n, cur), 2)
+        dm    = round(cur - m1_map.get(theme_n, cur), 2)
         if   dw > 3  and dm > 5:  state = t("state_accel")
         elif dw < -3 and dm < -5: state = t("state_decel")
         elif dw > 2:               state = t("state_up")
         elif dw < -2:              state = t("state_down")
         else:                      state = t("state_flat")
-        momentum_data.append({"テーマ": tn, "騰落率": cur, "先週比": dw, "先月比": dm, "状態": state})
+        momentum_data.append({"テーマ": theme_n, "騰落率": cur, "先週比": dw, "先月比": dm, "状態": state})
 
     # 並び替え選択
     sort_key = st.selectbox(t("sort_label"), [t("sort_return"), t("sort_weekly"), t("sort_monthly")],
@@ -1782,9 +1782,9 @@ elif pidx == PAGE_TREND:
     else:
         # 期間末の騰落率でランキング
         final_changes = {}
-        for tn, s in trend_data.items():
+        for theme_n, s in trend_data.items():
             if s is not None and len(s) > 0:
-                final_changes[tn] = s.iloc[-1]
+                final_changes[theme_n] = s.iloc[-1]
 
         sorted_themes = sorted(final_changes.items(), key=lambda x: x[1], reverse=True)
 
@@ -1823,22 +1823,23 @@ elif pidx == PAGE_TREND:
                 "#aa77ff","#ff77aa","#44dddd","#aaddff","#ffaa77",
                 "#88ff88","#ff6688","#66aaff","#ffcc44","#99ffcc",
             ]
-            for i, tn in enumerate(selected):
-                if tn not in trend_data:
+            for i, theme_n in enumerate(selected):
+                if theme_n not in trend_data:
                     continue
-                s = trend_data[tn]
+                s = trend_data[theme_n]
                 if s is None or len(s) < 2:
                     continue
                 color = colors[i % len(colors)]
                 final_val = s.iloc[-1]
                 sign = "+" if final_val >= 0 else ""
+                display_name = tn(theme_n)
                 fig.add_trace(go.Scatter(
                     x=s.index,
                     y=s.values,
                     mode="lines",
-                    name=f"{tn}（{sign}{final_val:.1f}%）",
+                    name=f"{display_name}（{sign}{final_val:.1f}%）",
                     line=dict(width=2, color=color),
-                    hovertemplate="%{x|%Y/%m/%d}<br>%{y:.2f}%<extra>" + tn + "</extra>",
+                    hovertemplate="%{x|%Y/%m/%d}<br>%{y:.2f}%<extra>" + display_name + "</extra>",
                 ))
 
             fig.add_hline(y=0, line_dash="dash", line_color="rgba(180,180,180,0.4)", line_width=1)
@@ -1871,11 +1872,11 @@ elif pidx == PAGE_TREND:
 
             # CSV出力
             csv_data = []
-            for tn in all_theme_names:
-                if tn in trend_data and trend_data[tn] is not None:
-                    s = trend_data[tn]
+            for theme_n in all_theme_names:
+                if theme_n in trend_data and trend_data[theme_n] is not None:
+                    s = trend_data[theme_n]
                     for date, val in s.items():
-                        csv_data.append({t("trend_date_col"): date.strftime("%Y-%m-%d"), t("theme_col"): tn(theme_name2), t("trend_rate_col"): val})
+                        csv_data.append({t("trend_date_col"): date.strftime("%Y-%m-%d"), t("theme_col"): tn(theme_n), t("trend_rate_col"): val})
             if csv_data:
                 csv_df = pd.DataFrame(csv_data)
                 st.download_button(
@@ -2125,11 +2126,11 @@ elif pidx == PAGE_HEATMAP:
                 "#f0e68c","#add8e6","#ffb6c1","#7fffd4","#e6e6fa",
             ]
             fig_line = go.Figure()
-            for idx, tn in enumerate(selected_line_themes):
-                if tn not in df_heat2.index: continue
-                vals = [df_heat2.loc[tn, col] for col in period_cols]
+            for idx, theme_n in enumerate(selected_line_themes):
+                if theme_n not in df_heat2.index: continue
+                vals = [df_heat2.loc[theme_n, col] for col in period_cols]
                 fig_line.add_trace(go.Scatter(
-                    x=period_cols, y=vals, mode="lines+markers", name=tn,
+                    x=period_cols, y=vals, mode="lines+markers", name=tn(theme_n),
                     line=dict(color=color_palette[idx % len(color_palette)], width=2),
                     marker=dict(size=7), connectgaps=True,
                 ))
@@ -2288,19 +2289,21 @@ elif pidx == PAGE_MARKET_RANK:
 
                 # 上位5件テーブル
                 df_top5 = pd.DataFrame([{
-                    "銘柄": r["銘柄"], "株価": r["株価"], "前日比": r["前日比"],
-                    "騰落率": f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
-                    "売買代金": r["売買代金"],
-                } for r in top5]).set_index("銘柄")
+                    t("stock_col"): r["銘柄"], t("price_col"): r["株価"],
+                    t("day_change_col"): r["前日比"],
+                    t("change_col"): f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                    t("trade_val_col"): r["売買代金"],
+                } for r in top5]).set_index(t("stock_col"))
                 st.dataframe(df_top5, use_container_width=True)
 
                 # 全件展開
                 with st.expander(t("show_all_stocks").format(n_seg)):
                     df_all_seg = pd.DataFrame([{
-                        "順位": f"{i+1}位",
-                        "銘柄": r["銘柄"], "株価": r["株価"], "前日比": r["前日比"],
-                        "騰落率": f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
-                        "売買代金": r["売買代金"],
+                        t("rank_col"): t("rank_suffix").format(i+1),
+                        t("stock_col"): r["銘柄"], t("price_col"): r["株価"],
+                        t("day_change_col"): r["前日比"],
+                        t("change_col"): f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                        t("trade_val_col"): r["売買代金"],
                     } for i, r in enumerate(seg_results)]).set_index(t("rank_col"))
                     st.dataframe(df_all_seg, use_container_width=True)
 
