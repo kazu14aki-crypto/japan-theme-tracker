@@ -104,45 +104,101 @@ _c  = COLOR_THEMES.get(_ct, COLOR_THEMES["dark"])
 st.markdown(f"""
 <style>
 /* ── カラーテーマ: {_ct} ── */
+
+/* ── アプリ全体背景 ── */
 .stApp {{
     background-color: {_c['bg_main']} !important;
 }}
+
+/* ── サイドバー ── */
 section[data-testid="stSidebar"] {{
     background-color: {_c['bg_sidebar']} !important;
 }}
 section[data-testid="stSidebar"] * {{
     color: {_c['text_primary']} !important;
 }}
-.stMarkdown, .stText, p, li, span {{
+
+/* ── メインエリアのテキスト全般 ── */
+.stApp, .stApp * {{
     color: {_c['text_primary']};
 }}
-h1, h2, h3, h4 {{
+.stMarkdown, .stMarkdown * {{
     color: {_c['text_primary']} !important;
 }}
-/* ボタン */
+p, li, span, label, div {{
+    color: {_c['text_primary']};
+}}
+h1, h2, h3, h4, h5, h6 {{
+    color: {_c['text_primary']} !important;
+}}
+
+/* ── メトリクス・キャプション ── */
+[data-testid="metric-container"] * {{
+    color: {_c['text_primary']} !important;
+}}
+.stCaption, .stCaption * {{
+    color: {_c['text_secondary']} !important;
+}}
+
+/* ── テーブル・データフレーム ── */
+[data-testid="stDataFrame"] * {{
+    color: {_c['text_primary']} !important;
+    background-color: {_c['bg_card']} !important;
+}}
+
+/* ── セレクトボックス・入力フォーム ── */
+[data-testid="stSelectbox"] *, [data-testid="stMultiSelect"] *,
+[data-testid="stTextInput"] *, [data-testid="stRadio"] *,
+[data-baseweb="select"] *, [data-baseweb="input"] * {{
+    color: {_c['text_primary']} !important;
+    background-color: {_c['bg_card']} !important;
+}}
+[data-baseweb="select"] [role="listbox"] * {{
+    background-color: {_c['bg_sidebar']} !important;
+    color: {_c['text_primary']} !important;
+}}
+
+/* ── expander ── */
+[data-testid="stExpander"] {{
+    background-color: {_c['bg_card']} !important;
+    border: 1px solid {_c['border']} !important;
+}}
+[data-testid="stExpander"] * {{
+    color: {_c['text_primary']} !important;
+}}
+
+/* ── info / warning / error ── */
+[data-testid="stAlert"] * {{
+    color: {_c['text_primary']} !important;
+}}
+
+/* ── ボタン ── */
 div.stButton > button {{
     width: 100%; height: 2.5em; font-size: 0.95em;
-    background-color: {_c['btn_bg']};
-    border: 1px solid {_c['btn_border']};
-    color: {_c['btn_color']};
+    background-color: {_c['btn_bg']} !important;
+    border: 1px solid {_c['btn_border']} !important;
+    color: {_c['btn_color']} !important;
 }}
 div.stButton > button:hover {{
-    background-color: {_c['accent']};
-    border-color: {_c['accent']};
-    color: white;
+    background-color: {_c['accent']} !important;
+    border-color: {_c['accent']} !important;
+    color: white !important;
 }}
 div[data-testid="column"] div.stButton > button {{
-    background-color: {_c['btn_bg']};
-    border: 1px solid {_c['btn_border']};
-    color: {_c['btn_color']};
+    background-color: {_c['btn_bg']} !important;
+    border: 1px solid {_c['btn_border']} !important;
+    color: {_c['btn_color']} !important;
 }}
 div[data-testid="column"] div.stButton > button:hover {{
-    background-color: {_c['accent']};
-    border-color: {_c['accent']};
-    color: white;
+    background-color: {_c['accent']} !important;
+    border-color: {_c['accent']} !important;
+    color: white !important;
 }}
-/* その他 */
+
+/* ── Plotlyチャート ── */
 .stPlotlyChart {{ overflow-x: auto; }}
+
+/* ── レスポンシブ ── */
 @media (max-width: 640px) {{
     h1 {{ font-size: 1.4em !important; }}
     h2 {{ font-size: 1.1em !important; }}
@@ -1126,6 +1182,7 @@ I18N = {
         "en": """**StockWaveJP** is a Japanese equity analytics tool that visualizes theme-based returns, capital flow, and price momentum.
 Covers ~30 themes and 250 stocks with near real-time data aggregation.
 For informational purposes only — not investment advice.""",
+    },
     # ─── 追加エントリ（第3弾：カスタムテーマ・細部） ───
     "custom_theme_name_hdr": {"ja": "#### 📌 テーマ名",           "en": "#### 📌 Theme Name"},
     "custom_search_hdr":     {"ja": "#### 🔎 銘柄を検索して追加",  "en": "#### 🔎 Search & Add Stocks"},
@@ -1323,7 +1380,6 @@ For informational purposes only — not investment advice.""",
     "download_heatmap_csv":  {"ja": "📥 CSV",                    "en": "📥 CSV"},
     "trend_rank_title_fmt":  {"ja": "**📋 テーマ騰落率ランキング（{}）**",
                               "en": "**📋 Theme Return Ranking ({})**"},
-    },
 }
 
 def t(key: str) -> str:
@@ -2828,10 +2884,11 @@ elif pidx == PAGE_SETTINGS:
     st.markdown(f"### {t('settings_theme_title')}")
     st.markdown(t("settings_theme_desc"))
 
+    _lkey = "label_en" if lang == "en" else "label"
     theme_options = {
-        f"🌑  {COLOR_THEMES['dark']['label']}":  "dark",
-        f"☀️  {COLOR_THEMES['light']['label']}": "light",
-        f"🌊  {COLOR_THEMES['navy']['label']}":  "navy",
+        f"🌑  {COLOR_THEMES['dark'][_lkey]}":  "dark",
+        f"☀️  {COLOR_THEMES['light'][_lkey]}": "light",
+        f"🌊  {COLOR_THEMES['navy'][_lkey]}":  "navy",
     }
     theme_labels  = list(theme_options.keys())
     theme_values  = list(theme_options.values())
@@ -2847,14 +2904,15 @@ elif pidx == PAGE_SETTINGS:
     )
     new_theme = theme_options[new_theme_label]
 
-    # プレビューカード
     _pc = COLOR_THEMES[new_theme]
+    _pc_label = _pc['label_en'] if lang == "en" else _pc['label']
+    _preview_word = "Preview" if lang == "en" else "プレビュー / Preview"
     st.markdown(f"""
 <div style="margin-top:12px;padding:18px 22px;border-radius:10px;
   background:{_pc['bg_card']};border:1px solid {_pc['border']};
   max-width:400px;">
   <div style="font-size:13px;font-weight:700;color:{_pc['text_primary']};margin-bottom:6px;">
-    {_pc['label']} — プレビュー / Preview
+    {_pc_label} — {_preview_word}
   </div>
   <div style="font-size:12px;color:{_pc['text_secondary']};margin-bottom:4px;">
     StockWaveJP · 株式波動 · 日本株テーマ分析
