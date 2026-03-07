@@ -2270,7 +2270,7 @@ StockWaveJP（以下「本サービス」）は、日本株式市場に関する
 # ── メインエリア フッター（全ページ共通・分岐の外側） ──
 st.markdown("---")
 st.markdown(
-    "<div style='text-align:center;font-size:11px;color:#2a3550;padding:6px 0 4px;'>"
+    "<div style='text-align:center;font-size:11px;color:#8090a8;padding:6px 0 4px;'>"
     "© 2026 StockWaveJP　|　本サービスは情報提供のみを目的とします。投資判断はご自身の責任で行ってください。"
     "</div>",
     unsafe_allow_html=True
