@@ -6,9 +6,15 @@ import plotly.graph_objects as go
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# ファビコン（ロゴPNG）を読み込む
+import os as _os
+from PIL import Image as _PILImage
+_favicon_path = _os.path.join(_os.path.dirname(__file__), "favicon.png")
+_favicon = _PILImage.open(_favicon_path) if _os.path.exists(_favicon_path) else "🌊"
+
 st.set_page_config(
     page_title="StockWaveJP",
-    page_icon="🌊",
+    page_icon=_favicon,
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -2334,6 +2340,7 @@ elif pidx == PAGE_HOWTO:
   <div style="font-size:13px;color:#8090a8;line-height:1.9;">
     日本株のテーマ別騰落率・資金フロー・モメンタムをリアルタイムに近い形で可視化するツールです。<br>
     約30テーマ・250銘柄のデータを自動集計し、投資テーマの強弱を素早く把握できます。<br>
+    🌐 公式サイト：<a href="https://stockwavejp.com" style="color:#4a7cdc;" target="_blank">stockwavejp.com</a><br>
     ※ 本ツールは投資判断の参考情報として提供するものであり、投資助言ではありません。
   </div>
 </div>
@@ -2409,7 +2416,7 @@ elif pidx == PAGE_DISCLAIMER:
          "お気に入り・カスタムテーマ等のデータはブラウザのセッション内にのみ保存され、サーバーには送信されません。"),
         ("📝 著作権・利用条件",
          "本ツールのソースコードは GitHub にて公開しています。非商用・個人利用の範囲で自由にご利用いただけます。"
-         "商用利用・再配布の際はお問い合わせください。"),
+         "商用利用・再配布の際は stockwavejp.com よりお問い合わせください。"),
     ]
     for title, body in _sections:
         st.markdown(f"""
@@ -2423,8 +2430,11 @@ elif pidx == PAGE_DISCLAIMER:
 # ── メインエリア フッター（全ページ共通・分岐の外側） ──
 st.markdown("---")
 st.markdown(
-    f"<div style='text-align:center;font-size:11px;color:#8090a8;padding:6px 0 4px;'>"
-    f"© 2024 StockWaveJP — 投資助言ではありません"
-    f"</div>",
+    "<div style='text-align:center;font-size:11px;color:#8090a8;padding:6px 0 4px;'>"
+    "© 2025 StockWaveJP — "
+    "<a href='https://stockwavejp.com' style='color:#556080;text-decoration:none;' "
+    "target='_blank'>stockwavejp.com</a>"
+    " — 投資助言ではありません"
+    "</div>",
     unsafe_allow_html=True
 )
