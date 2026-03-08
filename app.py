@@ -267,8 +267,6 @@ if "selected_period" not in st.session_state:
 if "custom_themes" not in st.session_state:
     st.session_state["custom_themes"] = {}
 # 設定タブ用
-if "app_language" not in st.session_state:
-    st.session_state["app_language"] = "ja"          # "ja" or "en"
 if "color_theme" not in st.session_state:
     st.session_state["color_theme"] = "dark"         # "dark" / "light" / "navy"
 
@@ -619,10 +617,8 @@ _PERIOD_I18N_KEYS = [
 def get_period_options() -> dict:
     """現在の言語設定に従って期間ラベル→yfinance期間文字列の辞書を返す。
     t()はI18N定義後に呼ばれる前提で、period_buttonsや各ページから呼ぶこと。"""
-    lang = st.session_state.get("app_language", "ja")
     _labels_ja = ["1日","1週間","1ヶ月","3ヶ月","6ヶ月","1年","1年半","2年"]
-    _labels_en = ["1D","1W","1M","3M","6M","1Y","18M","2Y"]
-    labels = _labels_en if lang == "en" else _labels_ja
+    labels = _labels_ja
     return dict(zip(labels, _PERIOD_YFINANCE))
 
 # 後方互換用（ページ描画時に動的に生成されるため、ここでは空dict）
@@ -666,9 +662,9 @@ def calc_sharpe(series, rf=0.001):
 
 def format_large_number(n):
     if n is None: return "N/A"
-    if n >= 1e12: return f"{n/1e12:.1f}" + ("T¥" if st.session_state.get("app_language","ja")=="en" else "兆円")
-    elif n >= 1e8: return f"{n/1e8:.0f}" + ("B¥" if st.session_state.get("app_language","ja")=="en" else "億円")
-    return ("¥" if st.session_state.get("app_language","ja")=="en" else "") + f"{n:,.0f}" + ("" if st.session_state.get("app_language","ja")=="en" else "円")
+    if n >= 1e12: return f"{n/1e12:.1f}兆円"
+    elif n >= 1e8: return f"{n/1e8:.0f}億円"
+    return f"{n:,.0f}円"
 
 # =====================
 # キャッシュ付きデータ取得
@@ -697,6 +693,11 @@ def fetch_stock_data(ticker: str, period: str = "2y") -> pd.DataFrame:
     except:
         return pd.DataFrame()
 
+
+# ──────────────────────────────────────────────
+# USD/JPY レート取得（TTL=市場時間と同じ動的キャッシュ）
+# ──────────────────────────────────────────────
+@st.cache_data(ttl=_get_ttl())
 @st.cache_data(ttl=21600)
 def fetch_fundamentals(ticker: str) -> dict:
     try:
@@ -890,7 +891,7 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
                 y=i,
                 xref="paper",
                 yref="y",
-                text=f"<b>#{rank_num}</b>" if st.session_state.get("app_language","ja")=="en" else f"<b>{rank_num}位</b>",
+                text=f"<b>{rank_num}位</b>",
                 showarrow=False,
                 xanchor="left",
                 yanchor="middle",
@@ -900,7 +901,7 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
 
     fig.update_layout(
         xaxis=dict(
-            title=t("return_pct_axis"), ticksuffix="%",
+            title="騰落率（%）", ticksuffix="%",
             zeroline=True, zerolinecolor="#555", zerolinewidth=1,
             range=[min_v * 1.3 if min_v < 0 else -0.5,
                    max_v * 1.3 if max_v > 0 else 0.5],
@@ -928,30 +929,30 @@ def make_price_chart(df, display_df, chart_type="candlestick", show_ma=True):
         fig.add_trace(go.Candlestick(
             x=display_df.index, open=display_df["Open"], high=display_df["High"],
             low=display_df["Low"], close=display_df["Close"],
-            increasing_line_color="#ff4b4b", decreasing_line_color="#39d353", name=t("legend_price"),
+            increasing_line_color="#ff4b4b", decreasing_line_color="#39d353", name="株価",
         ))
     else:
         fig.add_trace(go.Scatter(
             x=display_df.index, y=display_df["Close"], mode="lines",
             line=dict(color="#ff4b4b", width=2),
-            fill="tozeroy", fillcolor="rgba(255,75,75,0.1)", name=t("legend_close"),
+            fill="tozeroy", fillcolor="rgba(255,75,75,0.1)", name="終値",
         ))
     if show_ma and len(df) >= 25:
         fig.add_trace(go.Scatter(x=df.index, y=df["Close"].rolling(25).mean(),
-                                  mode="lines", line=dict(color="#ffd700", width=1.5, dash="dot"), name=t("legend_ma25")))
+                                  mode="lines", line=dict(color="#ffd700", width=1.5, dash="dot"), name="25日MA"))
     if show_ma and len(df) >= 75:
         fig.add_trace(go.Scatter(x=df.index, y=df["Close"].rolling(75).mean(),
-                                  mode="lines", line=dict(color="#4b8bff", width=1.5, dash="dot"), name=t("legend_ma75")))
+                                  mode="lines", line=dict(color="#4b8bff", width=1.5, dash="dot"), name="75日MA"))
     fig.update_layout(
         xaxis=dict(
-            title=t("xaxis_date"),
+            title="日付",
             rangeslider=dict(visible=False),
             dtick="M1",           # 1ヶ月ごとの目盛り
             tickformat="%y/%m",   # 例：25/01
             ticklabelmode="period",
             range=[display_df.index[0], display_df.index[-1]],
         ),
-        yaxis=dict(title=t("yaxis_price"), tickprefix="¥"),
+        yaxis=dict(title="株価（円）", tickprefix="¥"),
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white"), height=400,
         legend=dict(orientation="h", y=1.1),
@@ -991,7 +992,7 @@ def period_buttons(key_prefix="main"):
     col_sel, col_cap = st.columns([1, 3])
     with col_sel:
         selected = st.selectbox(
-            t("trend_period_label"),
+            "表示期間",
             period_labels,
             index=period_labels.index(current_label) if current_label in period_labels else 2,
             key=f"period_sel_{key_prefix}",
@@ -1009,791 +1010,30 @@ def period_buttons(key_prefix="main"):
 
     return selected_val
 
-# =====================
-# 言語辞書（日本語 / 英語）
-# =====================
-I18N = {
-    # ─── ページ名 ───
-    "page_theme_list":       {"ja": "📊 テーマ一覧",       "en": "📊 Theme List"},
-    "page_momentum":         {"ja": "📡 騰落モメンタム",    "en": "📡 Momentum"},
-    "page_fund_flow":        {"ja": "💹 資金フロー",         "en": "💹 Fund Flow"},
-    "page_trend":            {"ja": "📈 騰落推移",           "en": "📈 Price Trend"},
-    "page_heatmap":          {"ja": "🔥 ヒートマップ",       "en": "🔥 Heatmap"},
-    "page_compare":          {"ja": "📉 テーマ比較",         "en": "📉 Theme Compare"},
-    "page_macro":            {"ja": "🌍 マクロ比較",         "en": "🌍 Macro"},
-    "page_market_rank":      {"ja": "📋 市場別ランキング",   "en": "📋 Market Ranking"},
-    "page_theme_detail":     {"ja": "🔍 テーマ別詳細",       "en": "🔍 Theme Detail"},
-    "page_favorites":        {"ja": "⭐ お気に入り",          "en": "⭐ Favorites"},
-    "page_custom":           {"ja": "🏷️ カスタムテーマ",     "en": "🏷️ Custom Theme"},
-    "page_news":             {"ja": "📣 お知らせ",            "en": "📣 News"},
-    "page_howto":            {"ja": "📖 使い方・Q&A",        "en": "📖 How to Use"},
-    "page_disclaimer":       {"ja": "⚖️ 免責事項",           "en": "⚖️ Disclaimer"},
-    "page_settings":         {"ja": "⚙️ 設定",               "en": "⚙️ Settings"},
-    # ─── 共通UI ───
-    "menu":                  {"ja": "メニュー",               "en": "Menu"},
-    "refresh":               {"ja": "🔄 データを最新に更新",  "en": "🔄 Refresh Data"},
-    "market_open":           {"ja": "🟢 市場オープン中",      "en": "🟢 Market Open"},
-    "market_closed_weekend": {"ja": "🔴 市場閉（土日）",      "en": "🔴 Market Closed (Weekend)"},
-    "market_closed_hours":   {"ja": "🟡 市場閉（時間外）",    "en": "🟡 Market Closed (Off-hours)"},
-    "update_interval":       {"ja": "🔄 更新頻度：約{}分ごと","en": "🔄 Updates every ~{} min"},
-    "current_time":          {"ja": "🕐 現在時刻(JST)：{}",   "en": "🕐 Current time (JST): {}"},
-    "fav_count":             {"ja": "⭐ お気に入り：{}銘柄",  "en": "⭐ Favorites: {} stocks"},
-    "footer":                {"ja": "© 2026 StockWaveJP　|　本サービスは情報提供のみを目的とします。投資判断はご自身の責任で行ってください。",
-                              "en": "© 2026 StockWaveJP  |  For informational purposes only. Not investment advice."},
-    "loading":               {"ja": "データ取得中...",         "en": "Loading data..."},
-    "loading_daily":         {"ja": "日次データを取得中...（初回は少し時間がかかります）",
-                              "en": "Fetching daily data... (may take a moment on first load)"},
-    "loading_first":         {"ja": "データを取得中...（初回は時間がかかります）",
-                              "en": "Loading data... (first load may take a while)"},
-    "csv_download":          {"ja": "📥 CSVダウンロード",      "en": "📥 Download CSV"},
-    "csv_download_all":      {"ja": "📥 全テーマCSVダウンロード", "en": "📥 Download All Themes CSV"},
-    "no_data":               {"ja": "データを取得できませんでした。しばらく待ってから再度お試しください。",
-                              "en": "Could not fetch data. Please try again later."},
-    "select_theme_prompt":   {"ja": "テーマを1つ以上選択してください。", "en": "Please select at least one theme."},
-    # ─── 期間ラベル ───
-    "period_1d":             {"ja": "1日",    "en": "1D"},
-    "period_1w":             {"ja": "1週間",  "en": "1W"},
-    "period_1m":             {"ja": "1ヶ月",  "en": "1M"},
-    "period_3m":             {"ja": "3ヶ月",  "en": "3M"},
-    "period_6m":             {"ja": "6ヶ月",  "en": "6M"},
-    "period_1y":             {"ja": "1年",    "en": "1Y"},
-    "period_18m":            {"ja": "1年半",  "en": "18M"},
-    "period_2y":             {"ja": "2年",    "en": "2Y"},
-    # ─── テーマ一覧ページ ───
-    "theme_list_caption":    {"ja": "テーマ別の騰落率・資金フロー・出来高をランキング形式で表示します。",
-                              "en": "Rankings of theme-based returns, fund flow, and volume."},
-    "display_count_label":   {"ja": "表示テーマ数",            "en": "Themes to show"},
-    "display_count_caption": {"ja": "上位/下位 {}テーマ",      "en": "Top/Bottom {} themes"},
-    "display_count_all":     {"ja": "上位/下位 全テーマ",      "en": "All themes"},
-    "top_gainers":           {"ja": "🔴 上昇テーマ TOP",       "en": "🔴 Top Gainers"},
-    "top_losers":            {"ja": "🟢 下落テーマ TOP",       "en": "🟢 Top Losers"},
-    "volume_flow":           {"ja": "💴 出来高フロー",          "en": "💴 Volume Flow"},
-    "trade_value_ranking":   {"ja": "💴 テーマ別売買代金",      "en": "💴 Theme Trade Value"},
-    "show_more":             {"ja": "▼ 6位以下を表示（残り{}件）", "en": "▼ Show more ({} items)"},
-    "show_less":             {"ja": "▲ 閉じる",                "en": "▲ Close"},
-    "all_themes_table":      {"ja": "📋 全テーマ一覧",              "en": "📋 All Themes"},
-    "rank_col":              {"ja": "順位",                     "en": "Rank"},
-    "theme_col":             {"ja": "テーマ",                   "en": "Theme"},
-    "change_col":            {"ja": "騰落率",                   "en": "Return"},
-    "volume_col":            {"ja": "出来高増減",               "en": "Volume Chg"},
-    "trade_val_col":         {"ja": "売買代金",                 "en": "Trade Value"},
-    "rank_suffix":           {"ja": "{}位",                     "en": "#{}"},
-    # ─── 騰落モメンタムページ ───
-    "momentum_caption":      {"ja": "現在の騰落率 ＋ 先週比・先月比の変化で「加速・失速・転換」テーマを一目で把握",
-                              "en": "Identify accelerating, decelerating, and reversing themes using current return + weekly/monthly changes."},
-    "sort_label":            {"ja": "並び替え",                 "en": "Sort by"},
-    "sort_return":           {"ja": "騰落率（降順）",            "en": "Return (Desc)"},
-    "sort_weekly":           {"ja": "先週比変化（降順）",         "en": "Weekly Change (Desc)"},
-    "sort_monthly":          {"ja": "先月比変化（降順）",         "en": "Monthly Change (Desc)"},
-    "filter_state":          {"ja": "状態フィルター（空=全表示）", "en": "State Filter (empty=all)"},
-    "state_accel":           {"ja": "🔥加速",                   "en": "🔥Accelerating"},
-    "state_up":              {"ja": "↗転換↑",                  "en": "↗Reversing↑"},
-    "state_flat":            {"ja": "→横ばい",                  "en": "→Flat"},
-    "state_down":            {"ja": "↘転換↓",                  "en": "↘Reversing↓"},
-    "state_decel":           {"ja": "❄️失速",                   "en": "❄️Decelerating"},
-    "col_theme":             {"ja": "テーマ名",                  "en": "Theme"},
-    "col_return":            {"ja": "騰落率(%)",                 "en": "Return(%)"},
-    "col_weekly":            {"ja": "先週比(pt)",                "en": "vs.1W(pt)"},
-    "col_monthly":           {"ja": "先月比(pt)",                "en": "vs.1M(pt)"},
-    "col_state":             {"ja": "状態",                     "en": "State"},
-    "momentum_note":         {"ja": "💡 騰落率=選択期間の変化率 / 先週比・先月比=騰落率との差分(ポイント) / 🔥加速=両方↑ / ❄️失速=両方↓",
-                              "en": "💡 Return=change over selected period / vs.1W,1M=difference in points / 🔥Accel=both↑ / ❄️Decel=both↓"},
-    # ─── 資金フローページ ───
-    "fund_flow_title":       {"ja": "💹 テーマ別 資金フロー",   "en": "💹 Theme Fund Flow"},
-    "fund_flow_caption":     {"ja": "上昇テーマ vs 下落テーマの騰落幅を比較。どのテーマに資金が集まっているか把握できます。",
-                              "en": "Compare gainers vs losers to identify where capital is flowing."},
-    "inflow_top":            {"ja": "### 🔥 資金流入テーマ TOP10", "en": "### 🔥 Top Inflow Themes (Top 10)"},
-    "outflow_top":           {"ja": "### ❄️ 資金流出テーマ TOP10", "en": "### ❄️ Top Outflow Themes (Top 10)"},
-    "all_flow_overview":     {"ja": "**📊 全テーマ 騰落率一覧（資金フロー全景）**",
-                              "en": "**📊 All Themes — Full Fund Flow Overview**"},
-    # ─── 騰落推移ページ ───
-    "trend_title":           {"ja": "📈 テーマ別 騰落率の推移",  "en": "📈 Theme Return Trend"},
-    "trend_period_label":    {"ja": "表示期間",                  "en": "Period"},
-    "trend_mode_label":      {"ja": "表示モード",                "en": "Display Mode"},
-    "trend_mode_top":        {"ja": "🏆 上位5＋ワースト5",       "en": "🏆 Top 5 + Worst 5"},
-    "trend_mode_manual":     {"ja": "✅ テーマを手動選択",        "en": "✅ Select Manually"},
-    "trend_mode_all":        {"ja": "📊 全テーマ",               "en": "📊 All Themes"},
-    "trend_manual_label":    {"ja": "表示テーマを選択",               "en": "Select themes to display"},
-    "trend_rank_title":      {"ja": "**📋 テーマ騰落率ランキング（{}）**", "en": "**📋 Theme Return Ranking ({})**"},
-    "trend_rank_period":     {"ja": "騰落率（{}）",              "en": "Return ({})"},
-    "trend_date_col":        {"ja": "日付",                      "en": "Date"},
-    "trend_rate_col":        {"ja": "騰落率(%)",                 "en": "Return(%)"},
-    # ─── ヒートマップページ ───
-    "heatmap_title":         {"ja": "🔥 テーマ別騰落率 ヒートマップ", "en": "🔥 Theme Return Heatmap"},
-    "heatmap_period_label":  {"ja": "表示期間を選択",                 "en": "Select period"},
-    # ─── テーマ比較ページ ───
-    "compare_title":         {"ja": "📉 テーマ比較",              "en": "📉 Theme Comparison"},
-    "compare_caption":       {"ja": "複数テーマの騰落率を同一チャートで比較します。",
-                              "en": "Compare returns of multiple themes on the same chart."},
-    "compare_select":        {"ja": "比較するテーマを選択（最大10）", "en": "Select themes to compare (max 10)"},
-    "compare_period":        {"ja": "比較期間",                       "en": "Comparison period"},
-    # ─── マクロ比較ページ ───
-    "macro_title":           {"ja": "🌍 マクロ比較",              "en": "🌍 Macro Comparison"},
-    "macro_caption":         {"ja": "日本株テーマと主要指数・ETFを比較します。",
-                              "en": "Compare Japanese equity themes with major indices and ETFs."},
-    # ─── 市場別ランキングページ ───
-    "market_rank_title":     {"ja": "📋 市場別ランキング",         "en": "📋 Market Ranking"},
-    "market_rank_caption":   {"ja": "日経225・TOPIX100・テーマ別の騰落率ランキングです。",
-                              "en": "Return rankings by Nikkei 225, TOPIX100, and themes."},
-    # ─── テーマ別詳細ページ ───
-    "theme_detail_title":    {"ja": "🔍 テーマ別詳細",             "en": "🔍 Theme Detail"},
-    "theme_detail_select":   {"ja": "テーマを選択",                   "en": "Select a theme"},
-    "theme_detail_period":   {"ja": "期間",                           "en": "Period"},
-    "stock_name_col":        {"ja": "銘柄名",                     "en": "Stock Name"},
-    "ticker_col":            {"ja": "コード",                     "en": "Ticker"},
-    "change_pct_col":        {"ja": "騰落率(%)",                  "en": "Return(%)"},
-    "volume_chg_col":        {"ja": "出来高増減(%)",              "en": "Volume Chg(%)"},
-    "avg_return_label":      {"ja": "平均騰落率",                 "en": "Avg Return"},
-    "stock_count_label":     {"ja": "銘柄数",                    "en": "# Stocks"},
-    "stock_count_suffix":    {"ja": "銘柄",                      "en": " stocks"},
-    "return_pct_axis":       {"ja": "騰落率（%）",               "en": "Return (%)"},
-    "cum_return_axis":       {"ja": "累積リターン（%）",          "en": "Cum. Return (%)"},
-    "rsi_alert_buy":         {"ja": "⚠️買",  "en": "⚠️OB"},
-    "rsi_alert_sell":        {"ja": "⚠️売",  "en": "⚠️OS"},
-    "rsi_alert_ok":          {"ja": "✅",     "en": "✅"},
-    "col_52w_high":          {"ja": "52W高値","en": "52W High"},
-    "col_52w_low":           {"ja": "52W安値","en": "52W Low"},
-    "col_sharpe":            {"ja": "シャープ","en": "Sharpe"},
-    "col_rsi":               {"ja": "RSI",                     "en": "RSI"},
-    "heatmap_tab1":          {"ja": "🟥 期間別ヒートマップ",   "en": "🟥 Period Heatmap"},
-    "heatmap_tab2":          {"ja": "📅 月次推移ヒートマップ","en": "📅 Monthly Heatmap"},
-    "heatmap_tab3":          {"ja": "📈 折れ線グラフ",         "en": "📈 Line Chart"},
-    "stock_name_label":      {"ja": "銘柄名",                  "en": "Stock Name"},
-    "return_1m_label":       {"ja": "騰落率(1ヶ月)",           "en": "Return(1M)"},
-    "trade_value_col":       {"ja": "売買代金(万円)",             "en": "Trade Val(¥10k)"},
-    # ─── お気に入りページ ───
-    "fav_title":             {"ja": "⭐ お気に入り銘柄",           "en": "⭐ Favorite Stocks"},
-    "fav_empty":             {"ja": "お気に入りに銘柄が登録されていません。各ページから ⭐ ボタンで追加できます。",
-                              "en": "No favorite stocks yet. Add stocks using the ⭐ button on each page."},
-    "fav_remove":            {"ja": "削除",                           "en": "Remove"},
-    "fav_period":            {"ja": "表示期間",                   "en": "Period"},
-    # ─── カスタムテーマページ ───
-    "custom_title":          {"ja": "🏷️ カスタムテーマ",          "en": "🏷️ Custom Themes"},
-    "custom_caption":        {"ja": "自分だけのテーマを作成・管理できます。",
-                              "en": "Create and manage your own custom themes."},
-    "custom_new_name":       {"ja": "新しいテーマ名",                 "en": "New theme name"},
-    "custom_create":         {"ja": "テーマを作成",                   "en": "Create Theme"},
-    "custom_add_stock":      {"ja": "銘柄を追加（証券コードまたは銘柄名）", "en": "Add stock (ticker or name)"},
-    "custom_add_btn":        {"ja": "追加",                       "en": "Add"},
-    "custom_delete":         {"ja": "テーマを削除",                   "en": "Delete Theme"},
-    "custom_save":           {"ja": "保存",                       "en": "Save"},
-    # ─── グラフ軸ラベル ───
-    "yaxis_return":          {"ja": "騰落率（%）",                "en": "Return (%)"},
-    "yaxis_price":           {"ja": "株価（円）",                 "en": "Price (JPY)"},
-    "xaxis_date":            {"ja": "日付",                       "en": "Date"},
-    "legend_price":          {"ja": "株価",                       "en": "Price"},
-    "legend_close":          {"ja": "終値",                       "en": "Close"},
-    "legend_ma25":           {"ja": "25日MA",                    "en": "25D MA"},
-    "legend_ma75":           {"ja": "75日MA",                    "en": "75D MA"},
-    # ─── テーマ名英訳 ───
-    "theme_半導体":                          {"ja": "半導体",                    "en": "Semiconductors"},
-    "theme_AI・クラウド":                    {"ja": "AI・クラウド",              "en": "AI & Cloud"},
-    "theme_EV・電気自動車":                  {"ja": "EV・電気自動車",            "en": "EV / Electric Vehicles"},
-    "theme_ゲーム・エンタメ":                {"ja": "ゲーム・エンタメ",          "en": "Gaming & Entertainment"},
-    "theme_銀行・金融":                      {"ja": "銀行・金融",                "en": "Banking & Finance"},
-    "theme_地方銀行":                        {"ja": "地方銀行",                  "en": "Regional Banks"},
-    "theme_保険":                            {"ja": "保険",                      "en": "Insurance"},
-    "theme_不動産":                          {"ja": "不動産",                    "en": "Real Estate"},
-    "theme_医薬品・バイオ":                  {"ja": "医薬品・バイオ",            "en": "Pharma & Biotech"},
-    "theme_ヘルスケア・介護":                {"ja": "ヘルスケア・介護",          "en": "Healthcare & Nursing"},
-    "theme_食品・飲料":                      {"ja": "食品・飲料",                "en": "Food & Beverage"},
-    "theme_小売・EC":                        {"ja": "小売・EC",                  "en": "Retail & E-Commerce"},
-    "theme_通信":                            {"ja": "通信",                      "en": "Telecom"},
-    "theme_鉄鋼・素材":                      {"ja": "鉄鋼・素材",                "en": "Steel & Materials"},
-    "theme_化学":                            {"ja": "化学",                      "en": "Chemicals"},
-    "theme_建設・インフラ":                  {"ja": "建設・インフラ",            "en": "Construction & Infra"},
-    "theme_輸送・物流":                      {"ja": "輸送・物流",                "en": "Transport & Logistics"},
-    "theme_防衛・航空宇宙":                  {"ja": "防衛・航空宇宙",            "en": "Defense & Aerospace"},
-    "theme_フィンテック":                    {"ja": "フィンテック",              "en": "Fintech"},
-    "theme_再生可能エネルギー":              {"ja": "再生可能エネルギー",        "en": "Renewable Energy"},
-    "theme_ロボット・自動化":                {"ja": "ロボット・自動化",          "en": "Robotics & Automation"},
-    "theme_レアアース・資源":                {"ja": "レアアース・資源",          "en": "Rare Earth & Resources"},
-    "theme_サイバーセキュリティ":            {"ja": "サイバーセキュリティ",      "en": "Cybersecurity"},
-    "theme_ドローン・空飛ぶ車":              {"ja": "ドローン・空飛ぶ車",        "en": "Drones & Flying Cars"},
-    "theme_造船":                            {"ja": "造船",                      "en": "Shipbuilding"},
-    "theme_観光・ホテル・レジャー":          {"ja": "観光・ホテル・レジャー",    "en": "Tourism & Leisure"},
-    "theme_農業・フードテック":              {"ja": "農業・フードテック",        "en": "AgriTech & FoodTech"},
-    "theme_教育・HR・人材":                  {"ja": "教育・HR・人材",            "en": "Education & HR"},
-    "theme_脱炭素・ESG":                     {"ja": "脱炭素・ESG",               "en": "Decarbonization & ESG"},
-    "theme_宇宙・衛星":                      {"ja": "宇宙・衛星",                "en": "Space & Satellites"},
-    "theme_日経225（水産・農林・建設・食品・繊維）": {"ja": "日経225（水産・農林・建設・食品・繊維）", "en": "Nikkei225 (Fishery/Agri/Construction/Food/Textiles)"},
-    "theme_日経225（化学・医薬品・石油・ゴム・ガラス）": {"ja": "日経225（化学・医薬品・石油・ゴム・ガラス）", "en": "Nikkei225 (Chemicals/Pharma/Oil/Rubber/Glass)"},
-    "theme_日経225（鉄鋼・非鉄・金属・機械）": {"ja": "日経225（鉄鋼・非鉄・金属・機械）", "en": "Nikkei225 (Steel/Non-ferrous/Metals/Machinery)"},
-    "theme_日経225（電気機器・精密機器）":   {"ja": "日経225（電気機器・精密機器）", "en": "Nikkei225 (Electrical/Precision Equip.)"},
-    "theme_日経225（輸送用機器・その他製品・電力ガス）": {"ja": "日経225（輸送用機器・その他製品・電力ガス）", "en": "Nikkei225 (Transportation/Other/Utilities)"},
-    "theme_日経225（陸運・海運・空運・倉運・情通）": {"ja": "日経225（陸運・海運・空運・倉運・情通）", "en": "Nikkei225 (Land/Sea/Air/Warehouse/Telecom)"},
-    "theme_日経225（卸売・小売・銀行・証券・保険・金融・不動産・サービス）": {"ja": "日経225（卸売・小売・銀行・証券・保険・金融・不動産・サービス）", "en": "Nikkei225 (Wholesale/Retail/Finance/Real Estate/Services)"},
-    "theme_TOPIX100（Core30：時価総額最上位）": {"ja": "TOPIX100（Core30：時価総額最上位）", "en": "TOPIX100 (Core30: Largest Cap)"},
-    "theme_TOPIX100（Large70：時価総額上位大型株）": {"ja": "TOPIX100（Large70：時価総額上位大型株）", "en": "TOPIX100 (Large70: Large Cap)"},
-    "theme_日経平均":                        {"ja": "日経平均",                  "en": "Nikkei 225"},
-    "theme_TOPIX(ETF)":                      {"ja": "TOPIX(ETF)",               "en": "TOPIX (ETF)"},
-    # ─── 設定ページ ───
-    "settings_title":        {"ja": "⚙️ 設定",               "en": "⚙️ Settings"},
-    "settings_lang_title":   {"ja": "🌐 言語設定",            "en": "🌐 Language"},
-    "settings_lang_desc":    {"ja": "アプリの表示言語を選択してください。",
-                              "en": "Select the display language for the app."},
-    "settings_theme_title":  {"ja": "🎨 カラーテーマ",        "en": "🎨 Color Theme"},
-    "settings_theme_desc":   {"ja": "画面の配色を選択してください。",
-                              "en": "Choose the color scheme for the app."},
-    "settings_saved":        {"ja": "✅ 設定を保存しました。ページを再描画します...",
-                              "en": "✅ Settings saved. Reloading..."},
-    "settings_apply":        {"ja": "設定を適用する",          "en": "Apply Settings"},
-    "settings_about_title":  {"ja": "ℹ️ StockWaveJP について", "en": "ℹ️ About StockWaveJP"},
-    "settings_about_body":   {
-        "ja": """**StockWaveJP** は、日本株のテーマ別騰落率・資金フロー・モメンタムを可視化する株式情報ツールです。
-約30テーマ・250銘柄のデータをリアルタイムに近い形で集計・表示します。
-投資判断の参考情報として活用してください（投資助言ではありません）。""",
-        "en": """**StockWaveJP** is a Japanese equity analytics tool that visualizes theme-based returns, capital flow, and price momentum.
-Covers ~30 themes and 250 stocks with near real-time data aggregation.
-For informational purposes only — not investment advice.""",
-    },
-    # ─── 追加エントリ（第3弾：カスタムテーマ・細部） ───
-    "custom_theme_name_hdr": {"ja": "#### 📌 テーマ名",           "en": "#### 📌 Theme Name"},
-    "custom_search_hdr":     {"ja": "#### 🔎 銘柄を検索して追加",  "en": "#### 🔎 Search & Add Stocks"},
-    "custom_search_cap":     {"ja": "銘柄名（例：トヨタ）または証券コード4桁（例：7203）で検索",
-                              "en": "Search by stock name or 4-digit ticker (e.g. 7203)"},
-    "custom_search_btn":     {"ja": "🔍 検索",                    "en": "🔍 Search"},
-    "custom_no_result":      {"ja": "該当する銘柄が見つかりませんでした。証券コード4桁または銘柄名で再検索してください。",
-                              "en": "No stocks found. Try searching with a 4-digit ticker or stock name."},
-    "loading_stock":         {"ja": "{} のデータ取得中...",        "en": "Loading {} data..."},
-    "no_data_short":         {"ja": "データを取得できませんでした。", "en": "Could not fetch data."},
-    "fetch_error":           {"ja": "データ取得エラー：{}",         "en": "Fetch error: {}"},
-    "stock_detail_hdr":      {"ja": "**📊 銘柄詳細**",             "en": "**📊 Stock Detail**"},
-    "multi_hit_select":      {"ja": "複数の銘柄がヒットしました。選択してください：",
-                              "en": "Multiple stocks found. Please select one:"},
-    "already_added":         {"ja": "✅ **{}** はすでにリストに追加済みです。",
-                              "en": "✅ **{}** is already in the list."},
-    "add_to_theme_btn":      {"ja": "＋ 「{}」をテーマに追加",     "en": "＋ Add「{}」to Theme"},
-    "added_stocks_hdr":      {"ja": "**📋 追加済み銘柄（{}件）**", "en": "**📋 Added Stocks ({})**"},
-    "save_theme_btn":        {"ja": "✅ テーマを保存",              "en": "✅ Save Theme"},
-    "err_no_name":           {"ja": "テーマ名を入力してください",   "en": "Please enter a theme name"},
-    "err_dup_name":          {"ja": "デフォルトテーマと同じ名前は使えません",
-                              "en": "Cannot use the same name as a default theme"},
-    "err_no_stocks":         {"ja": "銘柄を1つ以上追加してください", "en": "Please add at least one stock"},
-    "custom_no_themes":      {"ja": "まだカスタムテーマがありません。「新規作成」タブから作成してください。",
-                              "en": "No custom themes yet. Create one using the New Theme tab."},
-    "custom_existing_hdr":   {"ja": "#### 作成済みカスタムテーマ",  "en": "#### Existing Custom Themes"},
-    "custom_theme_item":     {"ja": "📌 {}（{}銘柄）",             "en": "📌 {} ({} stocks)"},
-    "stock_list_hdr":        {"ja": "**銘柄一覧：**",               "en": "**Stock List:**"},
-    "edit_btn":              {"ja": "✏️ 編集",                    "en": "✏️ Edit"},
-    "edit_hint":             {"ja": "「新規作成」タブで「{}」を編集できます。保存すると上書きされます。",
-                              "en": "Edit「{}」in the New Theme tab. Saving will overwrite it."},
-    "delete_btn":            {"ja": "🗑️ 削除",                   "en": "🗑️ Delete"},
-    "howto_section_title":   {"ja": "### 📌 各ページの使い方",      "en": "### 📌 How to Use Each Page"},
-    "faq_title":             {"ja": "### ❓ よくある質問（Q&A）",   "en": "### ❓ FAQ"},
-    "settings_no_change":    {"ja": "設定に変更はありませんでした。", "en": "No changes were made."},
-    # ─── 使い方・Q&A・免責事項 本文 ───
-    "howto_intro_title":  {"ja": "🚀 StockWaveJP とは",
-                           "en": "🚀 What is StockWaveJP?"},
-    "howto_intro_body":   {
-        "ja": "StockWaveJP は、日本株のテーマ別騰落率・資金フロー・モメンタムを可視化する<b style=\"color:#e8eaf0;\">無料の株式情報ツール</b>です。<br>約30テーマ・250銘柄以上のデータをリアルタイムに近い形で集計・表示します。<br>投資判断の参考情報として活用してください（投資助言ではありません）。",
-        "en": "StockWaveJP is a <b style=\"color:#e8eaf0;\">free Japanese equity analytics tool</b> that visualizes theme-based returns, fund flow, and price momentum.<br>Covers ~30 themes and 250+ stocks with near real-time data aggregation.<br>For reference purposes only — not investment advice.",
-    },
-    "howto_feedback":     {
-        "ja": "ご要望・不具合報告は GitHubのIssues または お問い合わせフォームからお寄せください。",
-        "en": "For feature requests or bug reports, please use GitHub Issues or the contact form.",
-    },
-    "guide_items": {
-        "ja": [
-            ("📊 テーマ一覧",       "期間を選択して上位・下位テーマの騰落率ランキングを確認できます。表示テーマ数は5〜全件で切り替え可能です。"),
-            ("📡 騰落モメンタム",   "現在の騰落率に加え、先週比・先月比の変化量（ポイント）を表示。🔥加速・❄️失速など状態ラベルで相場の勢いを把握できます。"),
-            ("💹 資金フロー",       "資金流入TOP10・流出TOP10を左右で比較。全テーマの騰落率一覧も確認できます。"),
-            ("📈 騰落推移",         "過去1年分のテーマ別騰落率の時系列推移をグラフ表示。上位5テーマ／手動選択／全テーマを切り替えられます。"),
-            ("🔥 ヒートマップ",     "テーマ×期間のヒートマップで、どのテーマがいつ強かったかを一目で把握できます。"),
-            ("📉 テーマ比較",       "複数テーマを選んで騰落率を直接比較できます。"),
-            ("🌍 マクロ比較",       "日経平均・TOPIX・米国指数（S&P500・NASDAQ）と各テーマを比較します。"),
-            ("📋 市場別ランキング", "日経225・TOPIX100・東証プライムなど市場セグメント別の騰落率ランキングです。"),
-            ("🔍 テーマ別詳細",     "テーマを選択すると構成銘柄の個別騰落率・出来高ランキング・RSIなどを確認できます。"),
-            ("⭐ お気に入り",       "テーマ別詳細ページで「☆ 登録」した銘柄をまとめて確認できます。"),
-            ("🏷️ カスタムテーマ",   "銘柄名または証券コード4桁で検索して自分だけのテーマを作成できます。"),
-        ],
-        "en": [
-            ("📊 Theme List",       "Select a period to view top/bottom theme return rankings. You can switch between showing 5 to all themes."),
-            ("📡 Momentum",         "Displays current return plus weekly/monthly changes in points. State labels like 🔥Accelerating and ❄️Decelerating help you gauge market momentum at a glance."),
-            ("💹 Fund Flow",        "Compare top 10 inflow vs outflow themes side by side. Also shows a full return overview for all themes."),
-            ("📈 Price Trend",      "Time-series chart of theme returns over up to 1 year. Switch between Top 5, manual selection, or all themes."),
-            ("🔥 Heatmap",          "Theme × period heatmap lets you instantly see which themes were strong and when."),
-            ("📉 Theme Compare",    "Select multiple themes and compare their returns directly on the same chart."),
-            ("🌍 Macro",            "Compare themes against the Nikkei 225, TOPIX, and US indices (S&P 500, NASDAQ)."),
-            ("📋 Market Ranking",   "Return rankings by market segment: Nikkei 225, TOPIX100, TSE Prime, and more."),
-            ("🔍 Theme Detail",     "Select a theme to view individual stock returns, volume rankings, RSI, and more."),
-            ("⭐ Favorites",        "View all stocks you have starred from the Theme Detail page in one place."),
-            ("🏷️ Custom Theme",     "Search by stock name or 4-digit ticker to build your own original theme."),
-        ],
-    },
-    "qa_items": {
-        "ja": [
-            ("データはどこから取得していますか？",
-             "Yahoo! Finance の公開データをyfinanceライブラリ経由で取得しています。リアルタイムではなく、市場開場中は約3分、時間外は約30〜60分のキャッシュが適用されます。"),
-            ("表示される「現在時刻」と「データ更新」の違いは何ですか？",
-             "「現在時刻」はページを開いた瞬間の時刻です。「データ更新」はキャッシュが最後に生成された時刻で、実際のデータ取得時刻を示します。差分がキャッシュの経過時間です。"),
-            ("データが古い・更新されない場合はどうすればいいですか？",
-             "サイドバー下部の「🔄 データを最新に更新」ボタンを押してください。キャッシュがクリアされ、最新データが取得されます。"),
-            ("証券コードで検索する方法は？",
-             "カスタムテーマページの検索バーに4桁の証券コード（例：7203）を入力して検索してください。「.T」は自動で補完されます。"),
-            ("お気に入りはどこに保存されますか？",
-             "現在はブラウザのセッション中のみ保持されます。ページを閉じたり更新すると消えます。将来的にはローカル保存機能の追加を検討しています。"),
-            ("掲載されていないテーマ・銘柄を追加できますか？",
-             "「🏷️ カスタムテーマ」ページから、任意の銘柄でオリジナルテーマを作成できます。証券コードがわかれば掲載外の銘柄も追加可能です。"),
-            ("スマホでも使えますか？",
-             "はい、スマートフォンブラウザに対応しています。画面サイズに合わせてレイアウトが調整されます。"),
-        ],
-        "en": [
-            ("Where does the data come from?",
-             "Data is sourced from Yahoo! Finance via the yfinance library. It is not real-time — cache is refreshed approximately every 3 minutes during market hours, and every 30–60 minutes outside market hours."),
-            ("What is the difference between 'Current Time' and 'Data Updated'?",
-             "'Current Time' is the moment you opened the page. 'Data Updated' is when the cache was last generated — i.e., when the data was actually fetched. The difference is how long ago the cache was created."),
-            ("What should I do if the data seems stale or not refreshing?",
-             "Click the '🔄 Refresh Data' button in the sidebar. This clears the cache and fetches the latest data."),
-            ("How do I search by ticker code?",
-             "Enter a 4-digit ticker (e.g. 7203) in the Custom Theme search bar. The '.T' suffix is added automatically."),
-            ("Where are my favorites saved?",
-             "Favorites are stored only within your current browser session. They will be cleared if you close or refresh the page. Local persistence is planned for a future update."),
-            ("Can I add themes or stocks not currently listed?",
-             "Yes — use the 🏷️ Custom Theme page to build your own theme with any stocks. As long as you have the ticker code, you can add any listed stock."),
-            ("Is it available on mobile?",
-             "Yes, the app is compatible with smartphone browsers and the layout adapts to your screen size."),
-        ],
-    },
-    "disclaimer_sections": {
-        "ja": [
-            ("📋 サービス概要",
-             "StockWaveJP（以下「本サービス」）は、日本株式市場に関するテーマ別の騰落率・資金フロー・モメンタム等の統計情報を提供する情報サービスです。本サービスはいかなる意味においても投資助言・投資推奨を行うものではありません。"),
-            ("⚠️ 投資に関する免責",
-             "・本サービスで提供する情報はすべて情報提供のみを目的としており、特定の有価証券の売買を推奨・勧誘するものではありません。\n・投資に関する最終判断はご自身の責任において行ってください。\n・本サービスの情報を参考にした投資行動により生じた損失・損害について、StockWaveJP および開発者は一切の責任を負いません。\n・株式投資には元本割れのリスクがあります。過去の騰落率は将来の運用成果を保証するものではありません。"),
-            ("📡 データの正確性について",
-             "・本サービスのデータはYahoo! Finance（yfinanceライブラリ経由）から取得しており、データの正確性・完全性・最新性を保証するものではありません。\n・データの遅延・欠損・誤りが生じる場合があります。重要な投資判断には必ず公式情報源をご確認ください。\n・yfinanceはYahoo! Financeの非公式APIであり、サービス変更により突然利用できなくなる可能性があります。"),
-            ("🔒 個人情報・プライバシー",
-             "・本サービスはユーザー登録不要で利用できます。\n・お気に入り・カスタムテーマ等のデータはブラウザのセッション内にのみ保持され、外部サーバーへの送信は行いません。\n・アクセス解析のため、Streamlit Cloudの標準的なログ収集が行われる場合があります。"),
-            ("📜 著作権・知的財産",
-             "・本サービスのデザイン・ロゴ・コード・コンテンツの著作権はStockWaveJPに帰属します。\n・無断での複製・転載・改変・商業利用を禁止します。\n・「StockWaveJP」「株式波動」の名称・ロゴは商標登録出願中です。"),
-            ("🔄 サービスの変更・終了",
-             "・本サービスは予告なく内容の変更・機能の追加・削除・サービスの停止を行う場合があります。\n・これらにより生じた損害について、StockWaveJP および開発者は責任を負いません。"),
-            ("📅 制定・改定",
-             "・本免責事項は2026年3月に制定しました。\n・内容は予告なく改定される場合があります。改定後も引き続き本サービスを利用された場合、改定後の内容に同意したものとみなします。"),
-        ],
-        "en": [
-            ("📋 Service Overview",
-             "StockWaveJP (hereinafter 'the Service') is an information service providing statistical data on Japanese equities, including theme-based returns, fund flow, and price momentum. The Service does not constitute investment advice or recommendations of any kind."),
-            ("⚠️ Investment Disclaimer",
-             "· All information provided by this Service is for informational purposes only and does not constitute a solicitation or recommendation to buy or sell any security.\n· All investment decisions are made solely at your own risk and responsibility.\n· StockWaveJP and its developers accept no liability for any losses or damages resulting from investment actions taken based on information provided by this Service.\n· Stock investments carry the risk of capital loss. Past returns do not guarantee future performance."),
-            ("📡 Data Accuracy",
-             "· Data is sourced from Yahoo! Finance via the yfinance library. We do not guarantee the accuracy, completeness, or timeliness of the data.\n· Data delays, gaps, or errors may occur. Always verify critical investment decisions against official sources.\n· yfinance is an unofficial API and may become unavailable without notice due to changes in Yahoo! Finance's services."),
-            ("🔒 Privacy",
-             "· No user registration is required to use this Service.\n· Favorites and custom theme data are stored only within your browser session and are never transmitted to external servers.\n· Streamlit Cloud may collect standard access logs for analytics purposes."),
-            ("📜 Intellectual Property",
-             "· All design, logos, code, and content of this Service are the intellectual property of StockWaveJP.\n· Unauthorized reproduction, redistribution, modification, or commercial use is prohibited.\n· The names 'StockWaveJP' and '株式波動' and associated logos are pending trademark registration."),
-            ("🔄 Service Changes & Termination",
-             "· The Service may be modified, updated, or terminated at any time without prior notice.\n· StockWaveJP and its developers are not liable for any damages arising from such changes."),
-            ("📅 Effective Date & Revisions",
-             "· This disclaimer was established in March 2026.\n· Contents may be revised without notice. Continued use of the Service following any revision constitutes acceptance of the revised terms."),
-        ],
-    },
-    "disclaimer_footer": {
-        "ja": "© 2026 StockWaveJP　|　本サービスは情報提供のみを目的とします。<br>投資に関する最終判断はご自身の責任においてお願いします。",
-        "en": "© 2026 StockWaveJP  |  For informational purposes only.<br>All investment decisions are made at your own risk.",
-    },
 
-
-    # ─── 追加エントリ（第2弾） ───
-    "theme_ranking_title":   {"ja": "📊 テーマ別ランキング",    "en": "📊 Theme Ranking"},
-    "volume_by_theme":       {"ja": "**🔢 テーマ別出来高**",    "en": "**🔢 Theme Volume**"},
-    "trend_cap":             {"ja": "yfinanceの日次終値から算出（スプレッドシート不要）",
-                              "en": "Calculated from yfinance daily close prices."},
-    "heatmap_legend":        {"ja": "🔴**赤=上昇** 　🟢**緑=下落** 　⬛**黒=±0**",
-                              "en": "🔴**Red=Rise** 　🟢**Green=Fall** 　⬛**Black=±0**"},
-    "monthly_heatmap_title": {"ja": "**過去12ヶ月の月別騰落率** 🔴赤=上昇　🟢緑=下落",
-                              "en": "**Monthly Returns (Past 12 Months)** 🔴Red=Rise　🟢Green=Fall"},
-    "monthly_cap":           {"ja": "各月の始値→終値の騰落率（テーマ内銘柄の平均）",
-                              "en": "Monthly return = open→close avg across theme stocks"},
-    "loading_monthly":       {"ja": "月次データ取得中...（少し時間がかかります）",
-                              "en": "Fetching monthly data... (may take a moment)"},
-    "monthly_table_title":   {"ja": "**📋 月次騰落率テーブル**",  "en": "**📋 Monthly Return Table**"},
-    "download_monthly_csv":  {"ja": "📥 月次CSV",               "en": "📥 Monthly CSV"},
-    "hl_top5_btn":           {"ja": "🔴 上昇TOP5",               "en": "🔴 Top 5 Gainers"},
-    "hl_bot5_btn":           {"ja": "🟢 下落TOP5",               "en": "🟢 Top 5 Losers"},
-    "hl_all_btn":            {"ja": "📋 全テーマ",               "en": "📋 All Themes"},
-    "select_theme_prompt2":  {"ja": "テーマを選択してください",   "en": "Please select a theme"},
-    "compare_chart_title":   {"ja": "📉 テーマ間比較チャート",    "en": "📉 Theme Comparison Chart"},
-    "compare_warn":          {"ja": "2つ以上のテーマを選択してください",
-                              "en": "Please select at least 2 themes"},
-    "macro_comp_title":      {"ja": "🌍 マクロ指標との比較",     "en": "🌍 Macro Comparison"},
-    "compare_stock_select":  {"ja": "比較する銘柄を選択",         "en": "Select stock to compare"},
-    "market_rank_cap":       {"ja": "日経225・プライム・スタンダード・グロース別の騰落率ランキング",
-                              "en": "Return rankings by Nikkei225 / Prime / Standard / Growth"},
-    "loading_seg":           {"ja": "{} データ取得中...",         "en": "Loading {} data..."},
-    "top5_stocks":           {"ja": "**🔴 上位5銘柄**",           "en": "**🔴 Top 5 Stocks**"},
-    "bot5_stocks":           {"ja": "**🟢 下位5銘柄**",           "en": "**🟢 Bottom 5 Stocks**"},
-    "show_all_stocks":       {"ja": "全{}銘柄を表示",             "en": "Show all {} stocks"},
-    "fav_add_hint":          {"ja": "テーマ一覧ページで「☆ 登録」ボタンを押して追加してください。",
-                              "en": "Go to Theme List page and press ☆ to add favorites."},
-    "fav_csv":               {"ja": "📥 お気に入りCSV",           "en": "📥 Favorites CSV"},
-    "fav_remove_btn":        {"ja": "⭐ 解除",                    "en": "⭐ Remove"},
-    "fav_add_btn":           {"ja": "☆ 登録",                    "en": "☆ Add"},
-    "vol_individual":        {"ja": "**🔢 個別株出来高**",         "en": "**🔢 Stock Volume**"},
-    "tv_individual":         {"ja": "**💴 個別株売買代金**",       "en": "**💴 Stock Trade Value**"},
-    "stock_detail_table":    {"ja": "**📋 銘柄詳細一覧**",         "en": "**📋 Stock Detail**"},
-    "fav_section":           {"ja": "**⭐ お気に入り登録**",       "en": "**⭐ Favorites**"},
-    "no_theme_data":         {"ja": "データを取得できませんでした。別のテーマを選択してください。",
-                              "en": "Could not fetch data. Please select another theme."},
-    "news_caption":          {"ja": "StockWaveJP の機能追加・変更・修正情報をお知らせします。",
-                              "en": "News on StockWaveJP feature additions, changes, and fixes."},
-    "custom_edit_title":     {"ja": "🏷️ カスタムテーマ作成・編集", "en": "🏷️ Create / Edit Custom Themes"},
-    "custom_edit_cap":       {"ja": "自分だけのオリジナルテーマを作成できます。",
-                              "en": "Create and manage your own original themes."},
-    "download_heatmap_csv":  {"ja": "📥 CSV",                    "en": "📥 CSV"},
-    "trend_rank_title_fmt":  {"ja": "**📋 テーマ騰落率ランキング（{}）**",
-                              "en": "**📋 Theme Return Ranking ({})**"},
-    # ─── テーブル列名 ───
-    "stock_col":             {"ja": "銘柄",     "en": "Stock"},
-    "price_col":             {"ja": "株価",     "en": "Price"},
-    "day_change_col":        {"ja": "前日比",   "en": "Day Chg"},
-}
-
-def t(key: str) -> str:
-    """現在の言語設定に従って翻訳テキストを返す"""
-    lang = st.session_state.get("app_language", "ja")
-    entry = I18N.get(key, {})
-    return entry.get(lang, entry.get("ja", key))
-
-def tn(theme_name: str) -> str:
-    """テーマ名を現在の言語に翻訳して返す（英語未登録の場合は原文）"""
-    lang = st.session_state.get("app_language", "ja")
-    if lang == "ja":
-        return theme_name
-    key = f"theme_{theme_name}"
-    entry = I18N.get(key, {})
-    return entry.get("en", theme_name)
-
-# ── 銘柄名 日本語→英語 翻訳辞書 ──
-STOCK_EN = {
-    "ACSLエアロスペース":           "ACSL Aerospace",
-    "DOWAホールディングス":         "DOWA Holdings",
-    "FFRIセキュリティ":             "FFRI Security",
-    "GMOインターネット":            "GMO Internet",
-    "GMOフィナンシャルHD":          "GMO Financial HD",
-    "GMOペイメントゲートウェイ":    "GMO Payment Gateway",
-    "HISホールディングス":          "H.I.S. Holdings",
-    "JFEホールディングス":          "JFE Holdings",
-    "JR東日本":                     "JR East",
-    "JR東海":                       "JR Central",
-    "JR西日本":                     "JR West",
-    "Jパワー":                      "J-Power",
-    "MS&AD保険G":                   "MS&AD Insurance G",
-    "SBIホールディングス":          "SBI Holdings",
-    "SGホールディングス":           "SG Holdings",
-    "SOMPOホールディングス":        "SOMPO Holdings",
-    "T&Dホールディングス":          "T&D Holdings",
-    "Zホールディングス":            "Z Holdings",
-    "auカブコム証券":               "au Kabucom Securities",
-    "かんぽ生命":                   "Japan Post Insurance",
-    "さくらインターネット":         "Sakura Internet",
-    "ふくおかFG":                   "Fukuoka FG",
-    "みずほ":                       "Mizuho",
-    "みずほFG":                     "Mizuho FG",
-    "ゆうちょ銀行":                 "Japan Post Bank",
-    "りそな":                       "Resona",
-    "りそなHD":                     "Resona HD",
-    "アイシン":                     "Aisin",
-    "アイフル":                     "Aiful",
-    "アカツキ":                     "Akatsuki",
-    "アサヒグループHD":             "Asahi Group HD",
-    "アステラス製薬":               "Astellas Pharma",
-    "アドバンテスト":               "Advantest",
-    "アマダ":                       "Amada",
-    "イオン":                       "AEON",
-    "イビデン":                     "Ibiden",
-    "インターネットイニシアティブ":  "IIJ",
-    "インフォマート":               "Infomart",
-    "ウエストHD":                   "West HD",
-    "ウエルシアHD":                 "Welcia HD",
-    "ウシオ電機":                   "Ushio",
-    "エムスリー":                   "M3",
-    "エン・ジャパン":               "en Japan",
-    "エーザイ":                     "Eisai",
-    "オイシックス・ラ・大地":       "Oisix ra daichi",
-    "オプテージ（関西電力子会社）":  "Optage",
-    "オムロン":                     "Omron",
-    "オリエンタルランド":           "Oriental Land",
-    "オリエントコーポレーション":   "Orient Corp",
-    "オリックス":                   "Orix",
-    "オリンパス":                   "Olympus",
-    "オークマ":                     "Okuma",
-    "オービック":                   "Obic",
-    "カゴメ":                       "Kagome",
-    "カネカ":                       "Kaneka",
-    "カプコン":                     "Capcom",
-    "キヤノン":                     "Canon",
-    "キリンHD":                     "Kirin HD",
-    "キーエンス":                   "Keyence",
-    "クボタ":                       "Kubota",
-    "クレハ":                       "Kureha",
-    "グリー":                       "GREE",
-    "ケアネット":                   "CareNet",
-    "コナミ":                       "Konami",
-    "コナミグループ":               "Konami Group",
-    "コニカミノルタ":               "Konica Minolta",
-    "コマツ":                       "Komatsu",
-    "コンコルディア":               "Concordia FG",
-    "コーエーテクモ":               "Koei Tecmo",
-    "サイバーセキュリティクラウド":  "CyberSec Cloud",
-    "サントリー食品":               "Suntory Beverage",
-    "シスメックス":                 "Sysmex",
-    "シャープ":                     "Sharp",
-    "ジャパンマリンユナイテッド（JMU）": "JMU",
-    "スカパーJSATHD":               "SKY Perfect JSAT HD",
-    "スギHD":                       "Sugi HD",
-    "スクウェア・エニックス":       "Square Enix",
-    "スズキ":                       "Suzuki",
-    "セガサミー":                   "Sega Sammy",
-    "セガサミーHD":                 "Sega Sammy HD",
-    "セキド":                       "Sekido",
-    "セブン&アイ":                  "Seven & i",
-    "セブン&アイHD":                "Seven & i HD",
-    "センコーグループ":             "Senko Group",
-    "ソウルドアウト":               "Sold Out",
-    "ソシオネクスト":               "Socionext",
-    "ソニー":                       "Sony",
-    "ソニーグループ":               "Sony Group",
-    "ソフトバンク":                 "SoftBank",
-    "ソフトバンクG":                "SoftBank Group",
-    "ソリトンシステムズ":           "Soliton Systems",
-    "ダイキン工業":                 "Daikin Industries",
-    "ツムラ":                       "Tsumura",
-    "テラ":                         "Terra",
-    "テルモ":                       "Terumo",
-    "ディスコ":                     "Disco",
-    "デジタルアーツ":               "Digital Arts",
-    "デンソー":                     "Denso",
-    "トヨタ":                       "Toyota",
-    "トヨタ自動車":                 "Toyota Motor",
-    "トレンドマイクロ":             "Trend Micro",
-    "トーセイ":                     "Tosei",
-    "ドン・キホーテ（PPIH）":        "Don Quijote (PPIH)",
-    "ニコン":                       "Nikon",
-    "ニッスイ":                     "Nissui",
-    "ニデック":                     "Nidec",
-    "ニトリHD":                     "Nitori HD",
-    "ニプロ":                       "Nipro",
-    "ネクソン":                     "Nexon",
-    "バンダイナムコ":               "Bandai Namco",
-    "バンダイナムコHD":             "Bandai Namco HD",
-    "パナソニック":                 "Panasonic",
-    "パナソニックHD":               "Panasonic HD",
-    "パン・パシフィック":           "Pan Pacific Retail",
-    "パーソルHD":                   "Persol HD",
-    "ヒューリック":                 "Hulic",
-    "ファナック":                   "Fanuc",
-    "ファーストリテイリング":       "Fast Retailing",
-    "ファーマフーズ":               "PharmaFoods",
-    "フェローテック":               "Ferrotec",
-    "フクダ電子":                   "Fukuda Denshi",
-    "フジクラ":                     "Fujikura",
-    "ブリヂストン":                 "Bridgestone",
-    "ベネッセHD":                   "Benesse HD",
-    "ホンダ":                       "Honda",
-    "マイクロニクス":               "Micronics Japan",
-    "マツキヨコクミンHD":           "Matsukiyo Kokmin HD",
-    "マツダ":                       "Mazda",
-    "マネックスグループ":           "Monex Group",
-    "マネーフォワード":             "Money Forward",
-    "ミネベアミツミ":               "MinebeaMitsumi",
-    "メドレー":                     "Medley",
-    "メルカリ":                     "Mercari",
-    "ヤマトHD":                     "Yamato HD",
-    "ヤマハ":                       "Yamaha",
-    "ヤマハ発動機":                 "Yamaha Motor",
-    "ヤンマーHD":                   "Yanmar HD",
-    "リクルートHD":                 "Recruit HD",
-    "リコー":                       "Ricoh",
-    "リバーエレテック":             "River Eletec",
-    "リリカラ":                     "Lilycolor",
-    "リンクアンドモチベーション":   "Link & Motivation",
-    "ルネサス":                     "Renesas",
-    "ルネサスエレクトロニクス":     "Renesas Electronics",
-    "レオパレス21":                 "Leopalace21",
-    "レノバ":                       "Renova",
-    "レーザーテック":               "Lasertec",
-    "ロート製薬":                   "Rohto Pharma",
-    "ローム":                       "Rohm",
-    "七十七銀行":                   "77 Bank",
-    "三井E&S":                      "Mitsui E&S",
-    "三井不動産":                   "Mitsui Fudosan",
-    "三井住友":                     "SMBC",
-    "三井住友FG":                   "SMBC Group",
-    "三井物産":                     "Mitsui & Co.",
-    "三菱UFJ":                      "MUFG",
-    "三菱UFJ FG":                   "MUFG FG",
-    "三菱UFJ信託":                  "Mitsubishi UFJ Trust",
-    "三菱ケミカルG":                "Mitsubishi Chemical G",
-    "三菱ケミカルグループ":         "Mitsubishi Chemical Group",
-    "三菱マテリアル":               "Mitsubishi Materials",
-    "三菱商事":                     "Mitsubishi Corp.",
-    "三菱地所":                     "Mitsubishi Estate",
-    "三菱自動車":                   "Mitsubishi Motors",
-    "三菱重工業":                   "Mitsubishi Heavy Ind.",
-    "三菱電機":                     "Mitsubishi Electric",
-    "不二越":                       "Nachi-Fujikoshi",
-    "中外製薬":                     "Chugai Pharma",
-    "中部電力":                     "Chubu Electric",
-    "丸紅":                         "Marubeni",
-    "久光製薬":                     "Hisamitsu Pharma",
-    "九州電力":                     "Kyushu Electric",
-    "井関農機":                     "Iseki",
-    "京セラ":                       "Kyocera",
-    "京王電鉄":                     "Keio Railway",
-    "任天堂":                       "Nintendo",
-    "伊予銀行":                     "Iyo Bank",
-    "伊藤忠テクノソリューションズ":  "Itochu Techno-Sol.",
-    "伊藤忠商事":                   "Itochu Corp.",
-    "住友ゴム工業":                 "Sumitomo Rubber",
-    "住友不動産":                   "Sumitomo Realty",
-    "住友化学":                     "Sumitomo Chemical",
-    "住友商事":                     "Sumitomo Corp.",
-    "住友重機械工業":               "Sumitomo Heavy Ind.",
-    "住友金属鉱山":                 "Sumitomo Metal Mining",
-    "住友電気工業":                 "Sumitomo Electric",
-    "住友電装":                     "Sumitomo Wiring Sys.",
-    "信越化学工業":                 "Shin-Etsu Chemical",
-    "内海造船":                     "Uchida Shipbuilding",
-    "凸版印刷":                     "Toppan",
-    "出光興産":                     "Idemitsu Kosan",
-    "前田建設工業":                 "Maeda Construction",
-    "北海道銀行":                   "Hokkaido Bank",
-    "北陸電力":                     "Hokuriku Electric",
-    "参天製薬":                     "Santen Pharma",
-    "双日":                         "Sojitz",
-    "古河電気工業":                 "Furukawa Electric",
-    "名村造船所":                   "Namura Shipbuilding",
-    "味の素":                       "Ajinomoto",
-    "商船三井":                     "MOL",
-    "塩野義製薬":                   "Shionogi",
-    "大和ハウス工業":               "Daiwa House",
-    "大和工業":                     "Yamato Kogyo",
-    "大和証券G":                    "Daiwa Securities G",
-    "大和証券グループ":             "Daiwa Securities Group",
-    "大塚HD":                       "Otsuka HD",
-    "大成建設":                     "Taisei Construction",
-    "大日本印刷":                   "Dai Nippon Printing",
-    "大東建託":                     "Daito Trust",
-    "大林組":                       "Obayashi",
-    "大王製紙":                     "Daio Paper",
-    "大阪ガス":                     "Osaka Gas",
-    "大阪チタニウム":               "Osaka Titanium",
-    "太平洋金属":                   "Pacific Metals",
-    "安川電機":                     "Yaskawa Electric",
-    "富士フイルムHD":               "Fujifilm HD",
-    "富士通":                       "Fujitsu",
-    "富士電機":                     "Fuji Electric",
-    "小田急電鉄":                   "Odakyu Railway",
-    "小野薬品":                     "Ono Pharma",
-    "小野薬品工業":                 "Ono Pharmaceutical",
-    "山口FG":                       "Yamaguchi FG",
-    "山崎製パン":                   "Yamazaki Baking",
-    "川崎汽船":                     "K Line",
-    "川崎重工業":                   "Kawasaki Heavy Ind.",
-    "帝人":                         "Teijin",
-    "広島銀行":                     "Hiroshima Bank",
-    "弁護士ドットコム":             "Bengo4.com",
-    "日本エスリード":               "Japan Eslead",
-    "日本ハム":                     "Nippon Ham",
-    "日本取引所G":                  "JPX Group",
-    "日本板硝子":                   "Nippon Sheet Glass",
-    "日本水産":                     "Nippon Suisan",
-    "日本碍子":                     "NGK Insulators",
-    "日本精工":                     "NSK",
-    "日本航空電子工業":             "Japan Aviation Elec.",
-    "日本製鉄":                     "Nippon Steel",
-    "日本軽金属HD":                 "Nippon Light Metal HD",
-    "日本通運":                     "Nippon Express",
-    "日本郵船":                     "NYK Line",
-    "日本電信電話":                 "NTT",
-    "日本電気硝子":                 "Nippon Electric Glass",
-    "日東電工":                     "Nitto Denko",
-    "日清食品HD":                   "Nissin Food HD",
-    "日産自動車":                   "Nissan Motor",
-    "日立建機":                     "Hitachi Construction",
-    "日立製作所":                   "Hitachi",
-    "日鉄ソリューションズ":         "NS Solutions",
-    "旭化成":                       "Asahi Kasei",
-    "明治HD":                       "Meiji HD",
-    "星野リゾートReit":             "Hoshino Resort REIT",
-    "本田技研工業":                 "Honda Motor",
-    "村田製作所":                   "Murata Mfg.",
-    "東レ":                         "Toray",
-    "東京エレクトロン":             "Tokyo Electron",
-    "東京ガス":                     "Tokyo Gas",
-    "東京海上HD":                   "Tokio Marine HD",
-    "東京精密":                     "Tokyo Seimitsu",
-    "東京製鐵":                     "Tokyo Steel",
-    "東京計器":                     "Tokyo Keiki",
-    "東京電力HD":                   "TEPCO HD",
-    "東急":                         "Tokyu",
-    "東急不動産HD":                 "Tokyu Fudosan HD",
-    "東邦チタニウム":               "Toho Titanium",
-    "東邦銀行":                     "Toho Bank",
-    "松井証券":                     "Matsui Securities",
-    "楽天グループ":                 "Rakuten Group",
-    "武田薬品":                     "Takeda",
-    "武田薬品工業":                 "Takeda Pharmaceutical",
-    "江崎グリコ":                   "Ezaki Glico",
-    "清水建設":                     "Shimizu Construction",
-    "滋賀銀行":                     "Shiga Bank",
-    "琉球銀行":                     "Bank of the Ryukyus",
-    "神戸製鋼所":                   "Kobe Steel",
-    "積水ハウス":                   "Sekisui House",
-    "第一三共":                     "Daiichi Sankyo",
-    "第一生命":                     "Dai-ichi Life",
-    "第一生命HD":                   "Dai-ichi Life HD",
-    "良品計画":                     "Ryohin Keikaku",
-    "花王":                         "Kao",
-    "荏原製作所":                   "Ebara",
-    "藤田観光":                     "Fujita Kanko",
-    "西日本旅客鉄道":               "JR West",
-    "西松建設":                     "Nishimatsu Construction",
-    "豊和工業":                     "Howa Machinery",
-    "豊田通商":                     "Toyota Tsusho",
-    "近鉄エクスプレス":             "Kintetsu Express",
-    "近鉄グループHD":               "Kintetsu Group HD",
-    "野村HD":                       "Nomura HD",
-    "野村不動産HD":                 "Nomura Real Estate HD",
-    "野村総合研究所":               "NRI",
-    "長谷工コーポレーション":       "Haseko",
-    "関西電力":                     "Kansai Electric",
-    "静岡銀行":                     "Shizuoka Bank",
-    "鹿島建設":                     "Kajima",
-}
-
-def sn(stock_name: str) -> str:
-    """銘柄名を現在の言語に翻訳（英語未登録の場合は原文）"""
-    lang = st.session_state.get("app_language", "ja")
-    if lang == "ja":
-        return stock_name
-    return STOCK_EN.get(stock_name, stock_name)
-
-# PAGESリストを言語設定に応じて動的生成
-def get_pages():
-    return [
-        t("page_theme_list"),
-        t("page_momentum"),
-        t("page_fund_flow"),
-        t("page_trend"),
-        t("page_heatmap"),
-        t("page_compare"),
-        t("page_macro"),
-        t("page_market_rank"),
-        t("page_theme_detail"),
-        t("page_favorites"),
-        t("page_custom"),
-        t("page_news"),
-        t("page_howto"),
-        t("page_disclaimer"),
-        t("page_settings"),
-    ]
 
 # =====================
 # ページ切り替え（クリックで即切替）
 # =====================
+def get_pages():
+    return [
+        "📊 テーマ一覧",
+        "📡 騰落モメンタム",
+        "💹 資金フロー",
+        "📈 騰落推移",
+        "🔥 ヒートマップ",
+        "📉 テーマ比較",
+        "🌍 マクロ比較",
+        "📋 市場別ランキング",
+        "🔍 テーマ別詳細",
+        "⭐ お気に入り",
+        "🎨 カスタムテーマ",
+        "📰 ニュース",
+        "📖 使い方",
+        "⚖️ 免責事項",
+        "⚙️ 設定",
+    ]
+
 PAGES = get_pages()
 
 if "current_page" not in st.session_state:
@@ -1812,7 +1052,7 @@ else:
     st.session_state["current_page_idx"] = 0
     st.session_state["current_page"] = PAGES[0]
 
-st.sidebar.markdown(f"### {t('menu')}")
+st.sidebar.markdown(f"### {"メニュー"}")
 for _i, _p in enumerate(PAGES):
     _active = st.session_state["current_page_idx"] == _i
     if st.sidebar.button(_p, key=f"nav_{_i}", use_container_width=True):
@@ -1824,8 +1064,8 @@ page = st.session_state["current_page"]
 
 fav_count = len(st.session_state["favorites"])
 if fav_count > 0:
-    st.sidebar.info(t("fav_count").format(fav_count))
-if st.sidebar.button(t("refresh")):
+    st.sidebar.info("⭐ お気に入り：{}銘柄".format(fav_count))
+if st.sidebar.button("🔄 データを最新に更新"):
     st.cache_data.clear()
     st.rerun()
 
@@ -1838,18 +1078,18 @@ _mo = _dt2.time(9, 0)
 _mc = _dt2.time(15, 35)
 
 if _wd >= 5:
-    _market_status = t("market_closed_weekend")
+    _market_status = "🔴 市場閉（土日）"
     _ttl_min = 60
 elif _mo <= _t <= _mc:
-    _market_status = t("market_open")
+    _market_status = "🟢 市場オープン中"
     _ttl_min = 3
 else:
-    _market_status = t("market_closed_hours")
+    _market_status = "🟡 市場閉（時間外）"
     _ttl_min = 30
 
 st.sidebar.markdown(f"**{_market_status}**")
-st.sidebar.caption(t("update_interval").format(_ttl_min))
-st.sidebar.caption(t("current_time").format(_now_jst.strftime('%H:%M')))
+st.sidebar.caption("🔄 更新頻度：約{}分ごと".format(_ttl_min))
+st.sidebar.caption("🕐 現在時刻(JST)：{}".format(_now_jst.strftime('%H:%M')))
 st.sidebar.markdown("---")
 st.sidebar.markdown(
     "<div style='font-size:10px;color:#3a4560;text-align:center;line-height:1.8;'>"
@@ -1863,8 +1103,7 @@ st.sidebar.markdown(
 # now は毎回リアルタイムで現在時刻を取得（キャッシュに依存しない）
 def _get_now_str():
     dt = _dt2.datetime.utcnow() + _dt2.timedelta(hours=9)
-    lang = st.session_state.get("app_language","ja")
-    return dt.strftime("%Y-%m-%d %H:%M") if lang=="en" else dt.strftime("%Y年%m月%d日 %H:%M")
+    return dt.strftime("%Y年%m月%d日 %H:%M")
 now = _get_now_str()
 themes = get_all_themes()
 all_stocks = {}
@@ -1903,16 +1142,17 @@ if pidx == PAGE_THEME_LIST:
     # 表示テーマ数選択
     col_disp1, col_disp2 = st.columns([3, 1])
     with col_disp2:
-        display_count = st.selectbox(t("display_count_label"), [5, 10, 15, 25, 99], index=0,
+        display_count = st.selectbox("表示テーマ数", [5, 10, 15, 25, 99], index=0,
                                       label_visibility="collapsed")
-        st.caption(t("display_count_all") if display_count >= 99 else t("display_count_caption").format(display_count))
+        st.caption("上位/下位 全テーマ" if display_count >= 99 else "上位/下位 {}テーマ".format(display_count))
 
     theme_keys = tuple(themes.keys())
-    with st.spinner(t("loading_first")):
+    with st.spinner("データを取得中...（初回は時間がかかります）"):
         theme_results, theme_details, _cache_time = fetch_all_theme_data(period, theme_keys)
 
+
     # データ取得後に現在時刻・更新時刻を表示（_cache_time定義後）
-    st.caption(f"🕐 {now}  |  📦 {_cache_time}  |  {len(themes)} themes · ~{len(all_stocks)} stocks" if st.session_state.get("app_language","ja")=="en" else f"🕐 現在時刻：{now}　｜　📦 データ更新：{_cache_time}　　{len(themes)}テーマ・約{len(all_stocks)}銘柄")
+    st.caption(f"🕐 現在時刻：{now}　｜　📦 データ更新：{_cache_time}　　{len(themes)}テーマ・約{len(all_stocks)}銘柄")
 
     # 表示件数に応じて上位・下位を切り出し
     n = display_count if display_count < 99 else len(theme_results)
@@ -1920,21 +1160,20 @@ if pidx == PAGE_THEME_LIST:
     bot_results = theme_results[-n:] if display_count < 99 else []
 
     # === 上位テーマランキング ===
-    st.markdown(f'<p style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:8px 0 4px;">{t("top_gainers")} TOP{n}</p>', unsafe_allow_html=True)
-    top_labels = [tn(r["テーマ"]) for r in top_results]
+    st.markdown(f'<p style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:8px 0 4px;">{"🔴 上昇テーマ TOP"} TOP{n}</p>', unsafe_allow_html=True)
+    top_labels = [r["テーマ"] for r in top_results]
     top_ranks  = [f"{i+1}" for i in range(len(top_results))]
     top_values = [r["平均騰落率(%)"] for r in top_results]
     top_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in top_values]
-    # スクロール枠内に表示（グラフは全件分の高さ、枠でスクロール）
     chart_h = max(200, len(top_results) * 34)
     st.plotly_chart(make_bar_chart(top_labels, top_values, top_colors, height=chart_h, rank_labels=top_ranks),
                     use_container_width=True, config=PLOT_CONFIG)
 
     # === 下位テーマランキング ===
     if bot_results and display_count < 99:
-        st.markdown(f'<p style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:8px 0 4px;">{t("top_losers")} TOP{n}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:8px 0 4px;">{"🟢 下落テーマ TOP"} TOP{n}</p>', unsafe_allow_html=True)
         total = len(theme_results)
-        bot_labels = [tn(r["テーマ"]) for r in bot_results]
+        bot_labels = [r["テーマ"] for r in bot_results]
         bot_ranks  = [f"{total-n+i+1}" for i in range(len(bot_results))]
         bot_values = [r["平均騰落率(%)"] for r in bot_results]
         bot_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in bot_values]
@@ -1943,7 +1182,7 @@ if pidx == PAGE_THEME_LIST:
                         use_container_width=True, config=PLOT_CONFIG)
 
     # === テーマ別出来高・売買代金ランキング ===
-    st.subheader(t("theme_ranking_title"))
+    st.subheader("📊 テーマ別ランキング")
     col_rank1, col_rank2 = st.columns(2)
 
     if "show_vol_all" not in st.session_state:
@@ -1954,15 +1193,15 @@ if pidx == PAGE_THEME_LIST:
     # 出来高ランキング
     vol_sorted_all = sorted(theme_results, key=lambda x: x["合計出来高"], reverse=True)
     with col_rank1:
-        st.markdown(t("volume_by_theme"))
+        st.markdown("**🔢 テーマ別出来高**")
         show_v = st.session_state["show_vol_all"]
         disp_vol = vol_sorted_all if show_v else vol_sorted_all[:5]
         vol_rows = [
-            {t("rank_col"): t("rank_suffix").format(i+1), t("theme_col"): tn(r["テーマ"]), t("volume_col"): f"{int(r['合計出来高']):,}"}
+            {"順位": "{}位".format(i+1), "テーマ": r["テーマ"], "出来高増減": f"{int(r['合計出来高']):,}"}
             for i, r in enumerate(disp_vol)
         ]
-        st.dataframe(pd.DataFrame(vol_rows).set_index(t("rank_col")), use_container_width=True)
-        btn_label_v = t("btn_close") if show_v else t("btn_show_more").format(len(vol_sorted_all)-5)
+        st.dataframe(pd.DataFrame(vol_rows).set_index("順位"), use_container_width=True)
+        btn_label_v = "▲ 閉じる" if show_v else "▼ 6位以下を表示（残り{}件）".format(len(vol_sorted_all)-5)
         if st.button(btn_label_v, key="btn_vol_toggle", use_container_width=True):
             st.session_state["show_vol_all"] = not show_v
             st.rerun()
@@ -1970,33 +1209,34 @@ if pidx == PAGE_THEME_LIST:
     # 売買代金ランキング
     tv_sorted_all = sorted(theme_results, key=lambda x: x["合計売買代金"], reverse=True)
     with col_rank2:
-        st.markdown(f"**{t('trade_value_ranking')}**")
+        st.markdown(f"**{"💴 テーマ別売買代金"}**")
         show_t = st.session_state["show_tv_all"]
         disp_tv = tv_sorted_all if show_t else tv_sorted_all[:5]
         tv_rows = [
-            {t("rank_col"): t("rank_suffix").format(i+1), t("theme_col"): tn(r["テーマ"]), t("trade_val_col"): format_large_number(r["合計売買代金"])}
+            {"順位": "{}位".format(i+1), "テーマ": r["テーマ"], "売買代金": format_large_number(r["合計売買代金"])}
             for i, r in enumerate(disp_tv)
         ]
-        st.dataframe(pd.DataFrame(tv_rows).set_index(t("rank_col")), use_container_width=True)
-        btn_label_t = t("show_less") if show_t else t("show_more").format(len(tv_sorted_all)-5)
+        st.dataframe(pd.DataFrame(tv_rows).set_index("順位"), use_container_width=True)
+        btn_label_t = "▲ 閉じる" if show_t else "▼ 6位以下を表示（残り{}件）".format(len(tv_sorted_all)-5)
         if st.button(btn_label_t, key="btn_tv_toggle", use_container_width=True):
             st.session_state["show_tv_all"] = not show_t
             st.rerun()
 
     # === 全テーマ一覧表 ===
-    st.subheader(t("all_themes_table"))
+    st.subheader("📋 全テーマ一覧")
     table_data = []
     for rank, r in enumerate(theme_results, 1):
-        c, v = r["平均騰落率(%)"], r["出来高増減(%)"]
-        table_data.append({
-            t("rank_col"): t("rank_suffix").format(rank),
-            t("theme_col"): tn(r["テーマ"]),
-            t("change_col"): f"🔴 +{c}%" if c>0 else f"🟢 {c}%",
-            t("volume_col"): f"📈 +{v}%" if v>0 else f"📉 {v}%",
-        })
-    df_table = pd.DataFrame(table_data).set_index(t("rank_col"))
+        c_ret, v = r["平均騰落率(%)"], r["出来高増減(%)"]
+        row = {
+            "順位": "{}位".format(rank),
+            "テーマ": r["テーマ"],
+            "騰落率": f"🔴 +{_c}%" if _c>0 else f"🟢 {_c}%",
+            "出来高増減": f"📈 +{v}%" if v>0 else f"📉 {v}%",
+        }
+        table_data.append(row)
+    df_table = pd.DataFrame(table_data).set_index("順位")
     st.dataframe(df_table, use_container_width=True)
-    st.download_button(t("csv_download"), df_table.to_csv(encoding="utf-8-sig"),
+    st.download_button("📥 CSVダウンロード", df_table.to_csv(encoding="utf-8-sig"),
                        f"theme_list_{now}.csv", "text/csv")
 
 
@@ -2005,12 +1245,12 @@ if pidx == PAGE_THEME_LIST:
 # 騰落モメンタム
 # =====================
 elif pidx == PAGE_MOMENTUM:
-    st.subheader(t("page_momentum"))
-    st.caption(t("momentum_caption"))
+    st.subheader("📡 騰落モメンタム")
+    st.caption("現在の騰落率 ＋ 先週比・先月比の変化で「加速・失速・転換」テーマを一目で把握")
     period = period_buttons(key_prefix="momentum_page")
 
     theme_keys = tuple(themes.keys())
-    with st.spinner(t("loading")):
+    with st.spinner("データ取得中..."):
         results_now, _, _ct1 = fetch_all_theme_data(period, theme_keys)
         results_1w, _, _ct2 = fetch_all_theme_data("5d",  theme_keys)
         results_1m, _, _ct3 = fetch_all_theme_data("1mo", theme_keys)
@@ -2026,36 +1266,36 @@ elif pidx == PAGE_MOMENTUM:
         cur   = now_map.get(theme_n, 0)
         dw    = round(cur - w1_map.get(theme_n, cur), 2)
         dm    = round(cur - m1_map.get(theme_n, cur), 2)
-        if   dw > 3  and dm > 5:  state = t("state_accel")
-        elif dw < -3 and dm < -5: state = t("state_decel")
-        elif dw > 2:               state = t("state_up")
-        elif dw < -2:              state = t("state_down")
-        else:                      state = t("state_flat")
+        if   dw > 3  and dm > 5:  state = "🔥加速"
+        elif dw < -3 and dm < -5: state = "❄️失速"
+        elif dw > 2:               state = "↗転換↑"
+        elif dw < -2:              state = "↘転換↓"
+        else:                      state = "→横ばい"
         momentum_data.append({"テーマ": theme_n, "騰落率": cur, "先週比": dw, "先月比": dm, "状態": state})
 
     # 並び替え選択
-    sort_key = st.selectbox(t("sort_label"), [t("sort_return"), t("sort_weekly"), t("sort_monthly")],
+    sort_key = st.selectbox("並び替え", ["騰落率（降順）", "先週比変化（降順）", "先月比変化（降順）"],
                              label_visibility="collapsed")
-    if sort_key == t("sort_return"):
+    if sort_key == "騰落率（降順）":
         momentum_data.sort(key=lambda x: x["騰落率"], reverse=True)
-    elif sort_key == t("sort_weekly"):
+    elif sort_key == "先週比変化（降順）":
         momentum_data.sort(key=lambda x: x["先週比"], reverse=True)
     else:
         momentum_data.sort(key=lambda x: x["先月比"], reverse=True)
 
     # フィルター
-    filter_state = st.multiselect(t("filter_state"),
-                                   [t("state_accel"),t("state_up"),t("state_flat"),t("state_down"),t("state_decel")])
+    filter_state = st.multiselect("状態フィルター（空=全表示）",
+                                   ["🔥加速","↗転換↑","→横ばい","↘転換↓","❄️失速"])
     if filter_state:
         momentum_data = [d for d in momentum_data if d["状態"] in filter_state]
 
     # ヘッダー行
     hcol1, hcol2, hcol3, hcol4, hcol5 = st.columns([3, 2, 2, 2, 2])
-    hcol1.markdown(f"<small style='color:#666'>{t('col_theme')}</small>", unsafe_allow_html=True)
-    hcol2.markdown(f"<small style='color:#666'>{t('col_return')}</small>", unsafe_allow_html=True)
-    hcol3.markdown(f"<small style='color:#666'>{t('col_weekly')}</small>", unsafe_allow_html=True)
-    hcol4.markdown(f"<small style='color:#666'>{t('col_monthly')}</small>", unsafe_allow_html=True)
-    hcol5.markdown(f"<small style='color:#666'>{t('col_state')}</small>", unsafe_allow_html=True)
+    hcol1.markdown(f"<small style='color:#666'>{"テーマ名"}</small>", unsafe_allow_html=True)
+    hcol2.markdown(f"<small style='color:#666'>{"騰落率(%)"}</small>", unsafe_allow_html=True)
+    hcol3.markdown(f"<small style='color:#666'>{"先週比(pt)"}</small>", unsafe_allow_html=True)
+    hcol4.markdown(f"<small style='color:#666'>{"先月比(pt)"}</small>", unsafe_allow_html=True)
+    hcol5.markdown(f"<small style='color:#666'>{"状態"}</small>", unsafe_allow_html=True)
     st.markdown("<hr style='margin:2px 0 6px;border-color:#2a2a3a'>", unsafe_allow_html=True)
 
     # 表示
@@ -2071,24 +1311,24 @@ elif pidx == PAGE_MOMENTUM:
         dw_sign = "+" if dw >= 0 else ""
         dm_sign = "+" if dm >= 0 else ""
         col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 2, 2])
-        col1.write(f"**{i+1}. {tn(d['テーマ'])}**")
+        col1.write(f"**{i+1}. {d['テーマ']}**")
         col2.write(f"{c_color} {sign}{cur}%")
         col3.write(f"{dw_icon} {dw_sign}{dw}pt")
         col4.write(f"{dm_icon} {dm_sign}{dm}pt")
         col5.write(state)
 
-    st.caption(t("momentum_note"))
+    st.caption("💡 騰落率=選択期間の変化率 / 先週比・先月比=騰落率との差分(ポイント) / 🔥加速=両方↑ / ❄️失速=両方↓")
 
 # =====================
 # 資金フロー
 # =====================
 elif pidx == PAGE_FUND_FLOW:
-    st.subheader(t("fund_flow_title"))
-    st.caption(t("fund_flow_caption"))
+    st.subheader("💹 テーマ別 資金フロー")
+    st.caption("上昇テーマ vs 下落テーマの騰落幅を比較。どのテーマに資金が集まっているか把握できます。")
     period = period_buttons(key_prefix="flow_page")
 
     theme_keys = tuple(themes.keys())
-    with st.spinner(t("loading")):
+    with st.spinner("データ取得中..."):
         flow_results, _, _ct_flow = fetch_all_theme_data(period, theme_keys)
 
     flow_sorted = sorted(flow_results, key=lambda x: x["平均騰落率(%)"], reverse=True)
@@ -2098,8 +1338,8 @@ elif pidx == PAGE_FUND_FLOW:
 
     col_g, col_l = st.columns(2)
     with col_g:
-        st.markdown(t("inflow_top"))
-        g_labels = [tn(r["テーマ"]) for r in gainers]
+        st.markdown("### 🔥 資金流入テーマ TOP10")
+        g_labels = [r["テーマ"] for r in gainers]
         g_ranks  = [str(i+1) for i in range(len(gainers))]
         g_values = [r["平均騰落率(%)"] for r in gainers]
         g_colors = ["#ff4b4b"] * len(gainers)
@@ -2109,8 +1349,8 @@ elif pidx == PAGE_FUND_FLOW:
                         use_container_width=True, config=PLOT_CONFIG)
 
     with col_l:
-        st.markdown(t("outflow_top"))
-        l_labels = [tn(r["テーマ"]) for r in losers]
+        st.markdown("### ❄️ 資金流出テーマ TOP10")
+        l_labels = [r["テーマ"] for r in losers]
         l_ranks  = [str(total - len(losers) + i + 1) for i in range(len(losers))]
         l_values = [r["平均騰落率(%)"] for r in losers]
         l_colors = ["#39d353"] * len(losers)
@@ -2121,8 +1361,8 @@ elif pidx == PAGE_FUND_FLOW:
 
     # 全テーマ一覧
     st.markdown("---")
-    st.markdown(t("all_flow_overview"))
-    all_labels = [tn(r["テーマ"]) for r in flow_sorted]
+    st.markdown("**📊 全テーマ 騰落率一覧（資金フロー全景）**")
+    all_labels = [r["テーマ"] for r in flow_sorted]
     all_ranks  = [str(i+1) for i in range(len(flow_sorted))]
     all_values = [r["平均騰落率(%)"] for r in flow_sorted]
     all_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in all_values]
@@ -2135,26 +1375,26 @@ elif pidx == PAGE_FUND_FLOW:
 # 騰落推移（yfinance日次データ版）
 # =====================
 elif pidx == PAGE_TREND:
-    st.subheader(t("trend_title"))
-    st.caption(f"🕐 {_get_now_str()}  |  {t('trend_cap')}")
+    st.subheader("📈 テーマ別 騰落率の推移")
+    st.caption(f"🕐 {_get_now_str()}  |  {"yfinanceの日次終値から算出（スプレッドシート不要）"}")
 
     # 期間選択
     trend_period = st.selectbox(
-        t("trend_period_label"),
-        [t("period_1w"), t("period_1m"), t("period_3m"), t("period_6m"), t("period_1y")],
+        "表示期間",
+        ["1週間", "1ヶ月", "3ヶ月", "6ヶ月", "1年"],
         index=4,
         key="trend_period_sel",
     )
-    period_map = {t("period_1w"): "5d", t("period_1m"): "1mo", t("period_3m"): "3mo", t("period_6m"): "6mo", t("period_1y"): "1y"}
+    period_map = {"1週間": "5d", "1ヶ月": "1mo", "3ヶ月": "3mo", "6ヶ月": "6mo", "1年": "1y"}
     sel_period = period_map[trend_period]
 
     theme_keys = tuple(themes.keys())
 
-    with st.spinner(t("loading_daily")):
+    with st.spinner("日次データを取得中...（初回は少し時間がかかります）"):
         trend_data = fetch_theme_trend(theme_keys, sel_period)
 
     if not trend_data:
-        st.warning(t("no_data"))
+        st.warning("データを取得できませんでした。しばらく待ってから再度お試しください。")
     else:
         # 期間末の騰落率でランキング
         final_changes = {}
@@ -2171,23 +1411,23 @@ elif pidx == PAGE_TREND:
 
         # 表示モード
         mode = st.radio(
-            t("trend_mode_label"),
-            [t("trend_mode_top"), t("trend_mode_manual"), t("trend_mode_all")],
+            "表示モード",
+            ["🏆 上位5＋ワースト5", "✅ テーマを手動選択", "📊 全テーマ"],
             horizontal=True,
             key="trend_mode",
         )
 
         all_theme_names = list(trend_data.keys())
         # 英語表示用: 日本語テーマ名 → 英語名 の変換
-        _en2jp_tab3 = {tn(k): k for k in all_theme_names}
-        _all_names_en = [tn(k) for k in all_theme_names]
-        _default_sel_en = [tn(k) for k in default_sel]
+        _en2jp_tab3 = {k: k for k in all_theme_names}
+        _all_names_en = [k for k in all_theme_names]
+        _default_sel_en = [k for k in default_sel]
 
-        if mode == t("trend_mode_top"):
+        if mode == "🏆 上位5＋ワースト5":
             selected_en = _default_sel_en
-        elif mode == t("trend_mode_manual"):
+        elif mode == "✅ テーマを手動選択":
             selected_en = st.multiselect(
-                t("trend_manual_label"),
+                "表示テーマを選択",
                 _all_names_en,
                 default=_default_sel_en,
                 key="trend_manual_sel",
@@ -2198,7 +1438,7 @@ elif pidx == PAGE_TREND:
         selected = [_en2jp_tab3.get(n, n) for n in selected_en]
 
         if not selected:
-            st.info(t("select_theme_prompt"))
+            st.info("テーマを1つ以上選択してください。")
         else:
             fig = go.Figure()
             colors = [
@@ -2215,7 +1455,7 @@ elif pidx == PAGE_TREND:
                 color = colors[i % len(colors)]
                 final_val = s.iloc[-1]
                 sign = "+" if final_val >= 0 else ""
-                display_name = tn(theme_n)
+                display_name = theme_n
                 fig.add_trace(go.Scatter(
                     x=s.index,
                     y=s.values,
@@ -2233,7 +1473,7 @@ elif pidx == PAGE_TREND:
                     tickangle=0,
                     dtick="M1" if sel_period in ["6mo","1y"] else None,
                 ),
-                yaxis=dict(title=t("yaxis_return"), ticksuffix="%", zeroline=False),
+                yaxis=dict(title="騰落率（%）", ticksuffix="%", zeroline=False),
                 plot_bgcolor="rgba(0,0,0,0)",
                 paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="white", size=12),
@@ -2246,12 +1486,12 @@ elif pidx == PAGE_TREND:
 
             # ランキングサマリー表
             st.markdown("---")
-            st.markdown(t("trend_rank_title_fmt").format(trend_period))
+            st.markdown("**📋 テーマ騰落率ランキング（{}）**".format(trend_period))
             rank_df = pd.DataFrame([
-                {t("rank_col"): i+1, t("theme_col"): tn(theme_n), t("trend_rank_period").format(trend_period): f"{v:+.2f}%"}
+                {"順位": i+1, "テーマ": theme_n, "騰落率（{}）".format(trend_period): f"{v:+.2f}%"}
                 for i, (theme_n, v) in enumerate(sorted_themes)
             ])
-            st.dataframe(rank_df.set_index(t("rank_col")), use_container_width=True, height=min(600, len(rank_df)*36+40))
+            st.dataframe(rank_df.set_index("順位"), use_container_width=True, height=min(600, len(rank_df)*36+40))
 
             # CSV出力
             csv_data = []
@@ -2259,13 +1499,13 @@ elif pidx == PAGE_TREND:
                 if theme_n in trend_data and trend_data[theme_n] is not None:
                     s = trend_data[theme_n]
                     for date, val in s.items():
-                        csv_data.append({t("trend_date_col"): date.strftime("%Y-%m-%d"), t("theme_col"): tn(theme_n), t("trend_rate_col"): val})
+                        csv_data.append({"日付": date.strftime("%Y-%m-%d"), "テーマ": theme_n, "騰落率(%)": val})
             if csv_data:
                 csv_df = pd.DataFrame(csv_data)
                 st.download_button(
-                    t("csv_download_all"),
+                    "📥 全テーマCSVダウンロード",
                     csv_df.to_csv(index=False, encoding="utf-8-sig"),
-                    f"theme_trend_{trend_period}_{now}.csv" if st.session_state.get("app_language","ja")=="en" else f"テーマ騰落推移_{trend_period}_{now}.csv",
+f"テーマ騰落推移_{trend_period}_{now}.csv",
                     "text/csv",
                 )
 
@@ -2273,7 +1513,7 @@ elif pidx == PAGE_TREND:
 # ヒートマップ
 # =====================
 elif pidx == PAGE_HEATMAP:
-    st.subheader(t("heatmap_title"))
+    st.subheader("🔥 テーマ別騰落率 ヒートマップ")
     st.caption(f"🕐 {_get_now_str()}")
 
     # --- データ取得: 期間比較ヒートマップ ---
@@ -2357,25 +1597,25 @@ elif pidx == PAGE_HEATMAP:
 
     # タブ切り替え
     tab_heat, tab_monthly, tab_line = st.tabs([
-        t("heatmap_tab1"),
-        t("heatmap_tab2"),
-        t("heatmap_tab3"),
+        "🟥 期間別ヒートマップ",
+        "📅 月次推移ヒートマップ",
+        "📈 折れ線グラフ",
     ])
 
     # ============================================================
     # タブ1: 期間別ヒートマップ（1W/1M/3M/6M/1Y）
     # ============================================================
     with tab_heat:
-        with st.spinner(t("loading")):
+        with st.spinner("データ取得中..."):
             heatmap_data = fetch_heatmap_data(theme_keys)
         short_labels = ["1W","1M","3M","6M","1Y"]
         df_heat = pd.DataFrame(heatmap_data).T[short_labels]
-        df_heat.index = [tn(n) for n in df_heat.index]
+        df_heat.index = [n for n in df_heat.index]
         all_vals = [v for row in df_heat.values.tolist() for v in row if v is not None]
         abs_max = max(abs(min(all_vals)), abs(max(all_vals))) if all_vals else 10
         n_themes = len(df_heat)
 
-        st.markdown(t("heatmap_legend"))
+        st.markdown("🔴**赤=上昇** 　🟢**緑=下落** 　⬛**黒=±0**")
 
         z = df_heat.values.tolist()
         cell_text = [[f"{v:.1f}%" if v is not None else "" for v in row] for row in z]
@@ -2406,19 +1646,19 @@ elif pidx == PAGE_HEATMAP:
             margin=dict(t=45, b=10, l=155, r=60),
         )
         st.plotly_chart(fig_h1, use_container_width=True, config={"displayModeBar":False,"staticPlot":False})
-        st.download_button(t("download_heatmap_csv"), df_heat.to_csv(encoding="utf-8-sig"), f"heatmap_{now}.csv", "text/csv")
+        st.download_button("📥 CSV", df_heat.to_csv(encoding="utf-8-sig"), f"heatmap_{now}.csv", "text/csv")
 
     # ============================================================
     # タブ2: 月次推移ヒートマップ（過去12ヶ月・月単位）
     # ============================================================
     with tab_monthly:
-        st.markdown(t("monthly_heatmap_title"))
-        st.caption(t("monthly_cap"))
-        with st.spinner(t("loading_monthly")):
+        st.markdown("**過去12ヶ月の月別騰落率** 🔴赤=上昇　🟢緑=下落")
+        st.caption("各月の始値→終値の騰落率（テーマ内銘柄の平均）")
+        with st.spinner("月次データ取得中...（少し時間がかかります）"):
             monthly_data, month_labels = fetch_monthly_heatmap(theme_keys)
 
         df_monthly = pd.DataFrame(monthly_data).T[month_labels]
-        df_monthly.index = [tn(n) for n in df_monthly.index]
+        df_monthly.index = [n for n in df_monthly.index]
         mn_vals = [v for row in df_monthly.values.tolist() for v in row if v is not None]
         mn_abs_max = max(abs(min(mn_vals)), abs(max(mn_vals))) if mn_vals else 10
         n_t = len(df_monthly)
@@ -2433,8 +1673,7 @@ elif pidx == PAGE_HEATMAP:
             for i in range(n_t)
         ]
         # 月ラベルを短縮（MM月のみ表示）
-        _lang_sm = st.session_state.get("app_language","ja")
-        short_months = [m[5:] + ("" if _lang_sm=="en" else "月") for m in month_labels]
+        short_months = [m[5:] + ("月") for m in month_labels]
 
         fig_m = go.Figure(go.Heatmap(
             z=zm,
@@ -2468,18 +1707,18 @@ elif pidx == PAGE_HEATMAP:
         st.plotly_chart(fig_m, use_container_width=True, config={"displayModeBar":False,"staticPlot":False})
 
         # 月次数値テーブル
-        st.markdown(t("monthly_table_title"))
+        st.markdown("**📋 月次騰落率テーブル**")
         df_m_disp = df_monthly.copy()
         df_m_disp.columns = short_months
         df_m_disp = df_m_disp.applymap(lambda v: f"+{v:.1f}%" if v and v>0 else f"{v:.1f}%" if v else "N/A")
         st.dataframe(df_m_disp, use_container_width=True, height=min(500, n_t*35+40))
-        st.download_button(t("download_monthly_csv"), df_monthly.to_csv(encoding="utf-8-sig"), f"monthly_heatmap_{now}.csv", "text/csv")
+        st.download_button("📥 月次CSV", df_monthly.to_csv(encoding="utf-8-sig"), f"monthly_heatmap_{now}.csv", "text/csv")
 
     # ============================================================
     # タブ3: 折れ線グラフ（テーマ選択式）
     # ============================================================
     with tab_line:
-        with st.spinner(t("loading")):
+        with st.spinner("データ取得中..."):
             heatmap_data2 = fetch_heatmap_data(theme_keys)
         period_cols = ["1W","1M","3M","6M","1Y"]
         df_heat2 = pd.DataFrame(heatmap_data2).T[period_cols]
@@ -2490,17 +1729,17 @@ elif pidx == PAGE_HEATMAP:
             st.session_state["hl_preset"] = sorted_by_1m2.head(5).index.tolist()
         c1, c2, c3 = st.columns(3)
         with c1:
-            if st.button(t("hl_top5_btn"), key="hl_top5"):
+            if st.button("🔴 上昇TOP5", key="hl_top5"):
                 st.session_state["hl_preset"] = sorted_by_1m2.head(5).index.tolist(); st.rerun()
         with c2:
-            if st.button(t("hl_bot5_btn"), key="hl_bot5"):
+            if st.button("🟢 下落TOP5", key="hl_bot5"):
                 st.session_state["hl_preset"] = sorted_by_1m2.tail(5).index.tolist(); st.rerun()
         with c3:
-            if st.button(t("hl_all_btn"), key="hl_all"):
+            if st.button("📋 全テーマ", key="hl_all"):
                 st.session_state["hl_preset"] = all_theme_names; st.rerun()
 
         selected_line_themes = st.multiselect(
-            t("trend_manual_label"),
+            "表示テーマを選択",
             all_theme_names,
             default=st.session_state["hl_preset"],
         )
@@ -2516,14 +1755,14 @@ elif pidx == PAGE_HEATMAP:
                 if theme_n not in df_heat2.index: continue
                 vals = [df_heat2.loc[theme_n, col] for col in period_cols]
                 fig_line.add_trace(go.Scatter(
-                    x=period_cols, y=vals, mode="lines+markers", name=tn(theme_n),
+                    x=period_cols, y=vals, mode="lines+markers", name=theme_n,
                     line=dict(color=color_palette[idx % len(color_palette)], width=2),
                     marker=dict(size=7), connectgaps=True,
                 ))
             fig_line.add_hline(y=0, line_dash="dash", line_color="#666", line_width=1)
             fig_line.update_layout(
-                xaxis=dict(title=t("theme_detail_period"), categoryorder="array", categoryarray=period_cols),
-                yaxis=dict(title=t("return_pct_axis"), ticksuffix="%"),
+                xaxis=dict(title="期間", categoryorder="array", categoryarray=period_cols),
+                yaxis=dict(title="騰落率（%）", ticksuffix="%"),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="white", size=11), height=460,
                 legend=dict(orientation="h", x=0, y=-0.22, font=dict(size=10)),
@@ -2534,21 +1773,21 @@ elif pidx == PAGE_HEATMAP:
             df_sel = df_sel.applymap(lambda x: f"🔴 +{x}%" if x and x>0 else f"🟢 {x}%" if x else "N/A")
             st.dataframe(df_sel, use_container_width=True)
         else:
-            st.info(t("select_theme_prompt2"))
+            st.info("テーマを選択してください")
 
 elif pidx == PAGE_COMPARE:
-    st.subheader(t("compare_chart_title"))
+    st.subheader("📉 テーマ間比較チャート")
     period = period_buttons(key_prefix="comp")
-    _en2jp_cmp = {tn(k): k for k in themes.keys()}
-    _cmp_opts = [tn(k) for k in themes.keys()]
+    _en2jp_cmp = {k: k for k in themes.keys()}
+    _cmp_opts = [k for k in themes.keys()]
     _cmp_def = _cmp_opts[:2]
-    selected_themes_cmp_disp = st.multiselect(t("compare_select"), _cmp_opts,
+    selected_themes_cmp_disp = st.multiselect("比較するテーマを選択（最大10）", _cmp_opts,
                                           default=_cmp_def)
     selected_themes_cmp = [_en2jp_cmp.get(n, n) for n in selected_themes_cmp_disp]
     if len(selected_themes_cmp) < 2:
-        st.warning(t("compare_warn"))
+        st.warning("2つ以上のテーマを選択してください")
     else:
-        with st.spinner(t("loading")):
+        with st.spinner("データ取得中..."):
             fig_comp = go.Figure()
             for theme_name in selected_themes_cmp:
                 all_changes = {}
@@ -2567,11 +1806,11 @@ elif pidx == PAGE_COMPARE:
                     dates = sorted(all_changes.keys())
                     avgs = [round(sum(all_changes[d])/len(all_changes[d]),2) for d in dates]
                     fig_comp.add_trace(go.Scatter(x=dates, y=avgs, mode="lines",
-                                                   name=tn(theme_name), line=dict(width=2)))
+                                                   name=theme_name, line=dict(width=2)))
         fig_comp.add_hline(y=0, line_dash="dash", line_color="gray")
         fig_comp.update_layout(
-            xaxis=dict(title=t("xaxis_date"), dtick="M1", tickformat="%y/%m"),
-            yaxis=dict(title=t("cum_return_axis"), ticksuffix="%"),
+            xaxis=dict(title="日付", dtick="M1", tickformat="%y/%m"),
+            yaxis=dict(title="累積リターン（%）", ticksuffix="%"),
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="white", size=12), height=500,
             legend=dict(orientation="h", y=1.1),
@@ -2583,14 +1822,13 @@ elif pidx == PAGE_COMPARE:
 # マクロ比較
 # =====================
 elif pidx == PAGE_MACRO:
-    st.subheader(t("macro_comp_title"))
+    st.subheader("🌍 マクロ指標との比較")
     period = period_buttons(key_prefix="macro")
-    selected_stock_name = st.selectbox(t("compare_stock_select"), list(all_stocks.keys()))
+    selected_stock_name = st.selectbox("比較する銘柄を選択", list(all_stocks.keys()))
     selected_ticker = all_stocks[selected_stock_name]
-    _is_en_macro = st.session_state.get("app_language","ja") == "en"
-    macro_items = {"Nikkei 225":"^N225","S&P500":"^GSPC","USD/JPY":"JPY=X","TOPIX(ETF)":"1306.T"} if _is_en_macro else {"日経平均":"^N225","S&P500":"^GSPC","ドル円":"JPY=X","TOPIX(ETF)":"1306.T"}
-    colors_macro = {"Nikkei 225":"#ffd700","S&P500":"#4b8bff","USD/JPY":"#ff9900","TOPIX(ETF)":"#cc44ff"} if _is_en_macro else {"日経平均":"#ffd700","S&P500":"#4b8bff","ドル円":"#ff9900","TOPIX(ETF)":"#cc44ff"}
-    with st.spinner(t("loading")):
+    macro_items = {"日経平均":"^N225","S&P500":"^GSPC","ドル円":"JPY=X","TOPIX(ETF)":"1306.T"}
+    colors_macro = {"日経平均":"#ffd700","S&P500":"#4b8bff","ドル円":"#ff9900","TOPIX(ETF)":"#cc44ff"}
+    with st.spinner("データ取得中..."):
         fig_macro = go.Figure()
         try:
             df_sel = fetch_stock_data(selected_ticker, "2y")
@@ -2611,8 +1849,8 @@ elif pidx == PAGE_MACRO:
             except: pass
     fig_macro.add_hline(y=0, line_dash="dash", line_color="gray")
     fig_macro.update_layout(
-        xaxis=dict(title=t("xaxis_date"), dtick="M1", tickformat="%y/%m"),
-        yaxis=dict(title=t("cum_return_axis"), ticksuffix="%"),
+        xaxis=dict(title="日付", dtick="M1", tickformat="%y/%m"),
+        yaxis=dict(title="累積リターン（%）", ticksuffix="%"),
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white", size=12), height=500,
         legend=dict(orientation="h", y=1.1),
@@ -2624,13 +1862,13 @@ elif pidx == PAGE_MACRO:
 # 市場別ランキング
 # =====================
 elif pidx == PAGE_MARKET_RANK:
-    st.subheader(t("page_market_rank"))
-    st.caption(t("market_rank_cap"))
+    st.subheader("📋 市場別ランキング")
+    st.caption("日経225・プライム・スタンダード・グロース別の騰落率ランキング")
     period = period_buttons(key_prefix="market")
 
     for seg_name, seg_stocks in MARKET_SEGMENTS.items():
         with st.expander(f"📌 {seg_name}", expanded=True):
-            with st.spinner(t("loading_seg").format(seg_name)):
+            with st.spinner("{} データ取得中...".format(seg_name)):
                 seg_results = []
                 for stock_name, ticker in seg_stocks.items():
                     try:
@@ -2644,11 +1882,12 @@ elif pidx == PAGE_MARKET_RANK:
                         price = int(df["Close"].iloc[-1])
                         rv = target_df["Volume"].mean()
                         trade_val = int(rv * price)
+                        _seg_usd = calc_usd_return(change, *get_usdjpy_rate_at(period))
                         seg_results.append({
-                            t("stock_col"): sn(stock_name), t("price_col"): f"¥{price:,}",
-                            t("day_change_col"): f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
+                            "銘柄": stock_name, "株価": f"¥{price:,}",
+                            "前日比": f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
                             "騰落率": change,
-                            t("trade_val_col"): format_large_number(trade_val),
+                            "売買代金": format_large_number(trade_val),
                             "ticker": ticker,
                         })
                     except: pass
@@ -2663,16 +1902,16 @@ elif pidx == PAGE_MARKET_RANK:
 
                 col_t, col_b = st.columns(2)
                 with col_t:
-                    st.markdown(t("top5_stocks"))
-                    t_labels = [f"{t('rank_suffix').format(i+1)} {r[t('stock_col')]}" for i, r in enumerate(top5)]
+                    st.markdown("**🔴 上位5銘柄**")
+                    t_labels = [f"{"{}位".format(i+1)} {r["銘柄"]}" for i, r in enumerate(top5)]
                     t_values = [r["騰落率"] for r in top5]
                     t_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in t_values]
                     st.plotly_chart(make_bar_chart(t_labels, t_values, t_colors),
                                     use_container_width=True, config=PLOT_CONFIG)
                 with col_b:
                     if bot5:
-                        st.markdown(t("bot5_stocks"))
-                        b_labels = [f"{t('rank_suffix').format(n_seg-4+i)} {r[t('stock_col')]}" for i, r in enumerate(bot5)]
+                        st.markdown("**🟢 下位5銘柄**")
+                        b_labels = [f"{"{}位".format(n_seg-4+i)} {r["銘柄"]}" for i, r in enumerate(bot5)]
                         b_values = [r["騰落率"] for r in bot5]
                         b_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in b_values]
                         st.plotly_chart(make_bar_chart(b_labels, b_values, b_colors),
@@ -2680,22 +1919,22 @@ elif pidx == PAGE_MARKET_RANK:
 
                 # 上位5件テーブル
                 df_top5 = pd.DataFrame([{
-                    t("stock_col"): r[t("stock_col")], t("price_col"): r[t("price_col")],
-                    t("day_change_col"): r[t("day_change_col")],
-                    t("change_col"): f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
-                    t("trade_val_col"): r[t("trade_val_col")],
-                } for r in top5]).set_index(t("stock_col"))
+                    "銘柄": r["銘柄"], "株価": r["株価"],
+                    "前日比": r["前日比"],
+                    "騰落率": f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                    "売買代金": r["売買代金"],
+                } for r in top5]).set_index("銘柄")
                 st.dataframe(df_top5, use_container_width=True)
 
                 # 全件展開
-                with st.expander(t("show_all_stocks").format(n_seg)):
+                with st.expander("全{}銘柄を表示".format(n_seg)):
                     df_all_seg = pd.DataFrame([{
-                        t("rank_col"): t("rank_suffix").format(i+1),
-                        t("stock_col"): r[t("stock_col")], t("price_col"): r[t("price_col")],
-                        t("day_change_col"): r[t("day_change_col")],
-                        t("change_col"): f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
-                        t("trade_val_col"): r[t("trade_val_col")],
-                    } for i, r in enumerate(seg_results)]).set_index(t("rank_col"))
+                        "順位": "{}位".format(i+1),
+                        "銘柄": r["銘柄"], "株価": r["株価"],
+                        "前日比": r["前日比"],
+                        "騰落率": f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                            "売買代金": r["売買代金"],
+                    } for i, r in enumerate(seg_results)]).set_index("順位")
                     st.dataframe(df_all_seg, use_container_width=True)
 
 # =====================
@@ -2705,12 +1944,12 @@ elif pidx == PAGE_MARKET_RANK:
 # お気に入り
 # =====================
 elif pidx == PAGE_FAVORITES:
-    st.subheader(t("fav_title"))
+    st.subheader("⭐ お気に入り銘柄")
     period = period_buttons(key_prefix="fav")
     if len(st.session_state["favorites"]) == 0:
-        st.info(t("fav_add_hint"))
+        st.info("テーマ一覧ページで「☆ 登録」ボタンを押して追加してください。")
     else:
-        with st.spinner(t("loading")):
+        with st.spinner("データ取得中..."):
             fav_results = []
             for stock_name, ticker in st.session_state["favorites"].items():
                 try:
@@ -2724,13 +1963,13 @@ elif pidx == PAGE_FAVORITES:
                     price = int(target_df["Close"].iloc[-1])
                     day_c = round((df["Close"].iloc[-1]-df["Close"].iloc[-2])/df["Close"].iloc[-2]*100,2) if len(df)>=2 else None
                     fav_results.append({
-                        t("stock_col"): sn(stock_name),"ticker":ticker,"change":change,
+                        "銘柄": stock_name,"ticker":ticker,"change":change,
                         "price":price,"rsi":rsi_val,"sharpe":sharpe,"day_change":day_c,
                     })
                 except: pass
 
         fav_results.sort(key=lambda x: x["change"], reverse=True)
-        fav_labels = [r[t("stock_col")] for r in fav_results]
+        fav_labels = [r["銘柄"] for r in fav_results]
         fav_values = [r["change"] for r in fav_results]
         fav_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in fav_values]
         st.plotly_chart(make_bar_chart(fav_labels, fav_values, fav_colors),
@@ -2739,43 +1978,44 @@ elif pidx == PAGE_FAVORITES:
         table_data = []
         for r in fav_results:
             rsi = r.get("rsi")
-            rsi_alert = t("rsi_alert_buy") if rsi and rsi>70 else t("rsi_alert_sell") if rsi and rsi<30 else t("rsi_alert_ok")
+            rsi_alert = "⚠️買" if rsi and rsi>70 else "⚠️売" if rsi and rsi<30 else "✅"
             day_c = r.get("day_change")
             table_data.append({
-                t("stock_col"): r[t("stock_col")], t("price_col"): f"¥{r['price']:,}",
-                t("day_change_col"): f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
-                t("change_col"):f"🔴 +{r['change']}%" if r["change"]>0 else f"🟢 {r['change']}%",
-                t("col_rsi"):f"{rsi} {rsi_alert}" if rsi else "N/A",
-                t("col_sharpe"):f"{r['sharpe']}" if r["sharpe"] else "N/A",
+                "銘柄": r["銘柄"], "株価": f"¥{r['price']:,}",
+                "前日比": f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
+                "騰落率":f"🔴 +{r['change']}%" if r["change"]>0 else f"🟢 {r['change']}%",
+                "RSI":f"{rsi} {rsi_alert}" if rsi else "N/A",
+                "シャープ":f"{r['sharpe']}" if r["sharpe"] else "N/A",
             })
-        df_fav = pd.DataFrame(table_data).set_index(t("stock_col"))
+        df_fav = pd.DataFrame(table_data).set_index("銘柄")
         st.dataframe(df_fav, use_container_width=True)
-        st.download_button(t("fav_csv"), df_fav.to_csv(encoding="utf-8-sig"),
+        st.download_button("📥 お気に入りCSV", df_fav.to_csv(encoding="utf-8-sig"),
                            f"favorites_{now}.csv", "text/csv")
         for r in fav_results:
             c = "🔴" if r["change"]>0 else "🟢"
             col1, col2, col3 = st.columns([3,1,1])
-            with col1: st.write(f"{c} **{r[t('stock_col')]}**  {r['change']}%")
+            with col1: st.write(f"{c} **{r["銘柄"]}**  {r['change']}%")
             with col2:
-                if st.button(t("fav_remove_btn"), key=f"fd_{list(r.values())[0]}"):
+                if st.button("⭐ 解除", key=f"fd_{list(r.values())[0]}"):
                     del st.session_state["favorites"][r["銘柄"]]; st.rerun()
 
 # =====================
 # テーマ別詳細
 # =====================
 elif pidx == PAGE_THEME_DETAIL:
-    st.subheader(t("page_theme_detail"))
+    st.subheader("🔍 テーマ別詳細")
     st.caption(f"🕐 {_get_now_str()}")
     period = period_buttons(key_prefix="theme_detail")
 
     theme_keys = tuple(themes.keys())
-    with st.spinner(t("loading")):
+    with st.spinner("データ取得中..."):
         td_results, td_details, _cache_time_td = fetch_all_theme_data(period, theme_keys)
 
+
     # テーマ選択 (英語モード: 英語表示名→内部日本語キーの逆引き辞書を使う)
-    _en2jp_td = {tn(r["テーマ"]): r["テーマ"] for r in td_results}
-    theme_display_list = [tn(r["テーマ"]) for r in td_results]
-    selected_theme_disp = st.selectbox(t("theme_detail_select"), theme_display_list, key="detail_theme_sel")
+    _en2jp_td = {r["テーマ"]: r["テーマ"] for r in td_results}
+    theme_display_list = [r["テーマ"] for r in td_results]
+    selected_theme_disp = st.selectbox("テーマを選択", theme_display_list, key="detail_theme_sel")
     selected_theme = _en2jp_td.get(selected_theme_disp, selected_theme_disp)
 
     result = next((r for r in td_results if r["テーマ"] == selected_theme), None)
@@ -2785,99 +2025,16 @@ elif pidx == PAGE_THEME_DETAIL:
         c_val = result["平均騰落率(%)"]
         v_val = result["出来高増減(%)"]
         col_h1, col_h2, col_h3 = st.columns(3)
-        col_h1.metric(t("avg_return_label"), f"{'🔴 +' if c_val>0 else '🟢 '}{c_val}%")
-        col_h2.metric(t("volume_chg_col"), f"{'📈 +' if v_val>0 else '📉 '}{v_val}%")
-        col_h3.metric(t("stock_count_label"), f"{len(stocks_d)}{t('stock_count_suffix')}")
-
-        # 個別銘柄バーチャート
-        theme_s_map = themes.get(selected_theme, {})
-        s_labels = [
-            f"{sn(s)}({theme_s_map.get(s,'').replace('.T','')})" if theme_s_map.get(s) else sn(s)
-            for s in stocks_d.keys()
-        ]
-        s_values = [stocks_d[s]["change"] for s in stocks_d.keys()]
-        s_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in s_values]
-        s_ranks  = [str(i+1) for i in range(len(s_labels))]
-        # 騰落率順に並び替え
-        sorted_idx = sorted(range(len(s_values)), key=lambda i: s_values[i], reverse=True)
-        s_labels  = [s_labels[i]  for i in sorted_idx]
-        s_values  = [s_values[i]  for i in sorted_idx]
-        s_colors  = [s_colors[i]  for i in sorted_idx]
-        chart_h_d = max(200, len(s_labels) * 30)
-        st.plotly_chart(make_bar_chart(s_labels, s_values, s_colors,
-                                       height=chart_h_d, rank_labels=s_ranks),
-                        use_container_width=True, config=PLOT_CONFIG)
-
-        # 出来高・売買代金ランキング
-        col_r1, col_r2 = st.columns(2)
-        with col_r1:
-            st.markdown(t("vol_individual"))
-            vol_rank = sorted(stocks_d.items(), key=lambda x: x[1]["volume"], reverse=True)
-            vr_df = pd.DataFrame([
-                {t("rank_col"): t("rank_suffix").format(i+1), t("stock_col"): sn(k), t("volume_col"): f"{v['volume']:,}"}
-                for i, (k, v) in enumerate(vol_rank)
-            ]).set_index(t("rank_col"))
-            st.dataframe(vr_df, use_container_width=True)
-        with col_r2:
-            st.markdown(t("tv_individual"))
-            tv_rank = sorted(stocks_d.items(), key=lambda x: x[1]["trade_value"], reverse=True)
-            tvr_df = pd.DataFrame([
-                {t("rank_col"): t("rank_suffix").format(i+1), t("stock_col"): sn(k), t("trade_val_col"): format_large_number(v["trade_value"])}
-                for i, (k, v) in enumerate(tv_rank)
-            ]).set_index(t("rank_col"))
-            st.dataframe(tvr_df, use_container_width=True)
-
-        # 銘柄詳細テーブル
-        st.markdown("---")
-        st.markdown(t("stock_detail_table"))
-        stock_table = []
-        for stock_name, d in stocks_d.items():
-            rsi = d.get("rsi")
-            rsi_alert = t("rsi_alert_buy") if rsi and rsi>70 else t("rsi_alert_sell") if rsi and rsi<30 else t("rsi_alert_ok")
-            day_c = d.get("day_change")
-            ticker_raw = theme_s_map.get(stock_name, "")
-            code = ticker_raw.replace(".T","") if ticker_raw else ""
-            stock_table.append({
-                t("stock_col"): sn(stock_name), t("ticker_col"): code,
-                t("price_col"): f"¥{int(d['price']):,}",
-                t("day_change_col"): f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
-                t("change_col"): f"🔴 +{d['change']}%" if d["change"]>0 else f"🟢 {d['change']}%",
-                t("col_rsi"): f"{rsi} {rsi_alert}" if rsi else "N/A",
-                t("col_sharpe"): f"{d['sharpe']}" if d["sharpe"] else "N/A",
-                t("col_52w_high"): f"¥{int(d['52w_high']):,}" if d["52w_high"] else "N/A",
-                t("col_52w_low"): f"¥{int(d['52w_low']):,}" if d["52w_low"] else "N/A",
-            })
-        df_stock = pd.DataFrame(stock_table).set_index(t("stock_col"))
-        st.dataframe(df_stock, use_container_width=True)
-        st.download_button(f"📥 {selected_theme} CSV",
-                           df_stock.to_csv(encoding="utf-8-sig"),
-                           f"{selected_theme}_{now}.csv", "text/csv")
-
-        # お気に入り登録
-        st.markdown("---")
-        st.markdown(t("fav_section"))
-        for sn, d in stocks_d.items():
-            c_icon = "🔴" if d["change"]>0 else "🟢"
-            is_fav = sn in st.session_state["favorites"]
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.write(f"{c_icon} **{sn}**　{d['change']}%")
-            with col2:
-                if is_fav:
-                    if st.button(t("fav_remove_btn"), key=f"fav_td_{selected_theme}_{sn}"):
-                        del st.session_state["favorites"][sn]; st.rerun()
-                else:
-                    if st.button(t("fav_add_btn"), key=f"fav_td_{selected_theme}_{sn}"):
-                        st.session_state["favorites"][sn] = d["ticker"]; st.rerun()
-    else:
-        st.info(t("no_theme_data"))
+        col_h1.metric("平均騰落率", f"{'🔴 +' if c_val>0 else '🟢 '}{c_val}%")
+        col_h2.metric("出来高増減(%)", f"{'📈 +' if v_val>0 else '📉 '}{v_val}%")
+        col_h3.metric("銘柄数", f"{len(stocks_d)}{"銘柄"}")
 
 # =====================
 # お知らせ
 # =====================
 elif pidx == PAGE_NEWS:
-    st.subheader(t("page_news"))
-    st.caption(t("news_caption"))
+    st.subheader("📣 お知らせ")
+    st.caption("StockWaveJP の機能追加・変更・修正情報をお知らせします。")
 
     notices = [
         {
@@ -2948,10 +2105,10 @@ elif pidx == PAGE_NEWS:
 # カスタムテーマ
 # =====================
 elif pidx == PAGE_CUSTOM:
-    st.subheader(t("custom_edit_title"))
-    st.caption(t("custom_edit_cap"))
+    st.subheader("🏷️ カスタムテーマ作成・編集")
+    st.caption("自分だけのオリジナルテーマを作成できます。")
 
-    tab1, tab2 = st.tabs([t("custom_tab_new"), t("custom_tab_edit")])
+    tab1, tab2 = st.tabs(["➕ 新規作成", "✏️ 編集・削除"])
 
     with tab1:
 
@@ -2963,26 +2120,26 @@ elif pidx == PAGE_CUSTOM:
         if "ct_search_query" not in st.session_state:
             st.session_state["ct_search_query"] = ""
 
-        st.markdown(t("custom_theme_name_hdr"))
-        new_theme_name = st.text_input(t("custom_theme_name_label"), placeholder=t("custom_theme_name_placeholder"),
+        st.markdown("#### 📌 テーマ名")
+        new_theme_name = st.text_input("テーマ名", placeholder="例：マイ注目銘柄、AIテーマ...",
                                         label_visibility="collapsed")
 
         st.markdown("---")
-        st.markdown(t("custom_search_hdr"))
-        st.caption(t("custom_search_cap"))
+        st.markdown("#### 🔎 銘柄を検索して追加")
+        st.caption("銘柄名（例：トヨタ）または証券コード4桁（例：7203）で検索")
 
         # 検索バー
         search_col, btn_col = st.columns([4, 1])
         with search_col:
             ct_query = st.text_input(
-                t("custom_stock_input_label"),
-                placeholder=t("custom_stock_input_placeholder"),
+                "銘柄名 or 証券コード",
+                placeholder="銘柄名 or 証券コード（例：7203 / トヨタ）",
                 label_visibility="collapsed",
                 key="ct_search_input",
             )
         with btn_col:
             st.write("")
-            do_search = st.button(t("custom_search_btn"), key="ct_search_btn", use_container_width=True)
+            do_search = st.button("🔍 検索", key="ct_search_btn", use_container_width=True)
 
         # 検索実行
         if do_search and ct_query:
@@ -3007,12 +2164,12 @@ elif pidx == PAGE_CUSTOM:
                 }
 
             if not search_targets:
-                st.warning(t("custom_no_result"))
+                st.warning("該当する銘柄が見つかりませんでした。証券コード4桁または銘柄名で再検索してください。")
                 st.session_state["ct_search_result"] = None
             else:
                 # 最初にヒットした銘柄のデータを取得
                 found_name, found_ticker = next(iter(search_targets.items()))
-                with st.spinner(t("loading_stock").format(found_name)):
+                with st.spinner("{} のデータ取得中...".format(found_name)):
                     try:
                         df_ct = fetch_stock_data(found_ticker, "2y")
                         if len(df_ct) >= 2:
@@ -3037,27 +2194,27 @@ elif pidx == PAGE_CUSTOM:
                                 "all_hits": list(search_targets.items()),
                             }
                         else:
-                            st.warning(t("no_data_short"))
+                            st.warning("データを取得できませんでした。")
                             st.session_state["ct_search_result"] = None
                     except Exception as e:
-                        st.error(t("fetch_error").format(e))
+                        st.error("データ取得エラー：{}".format(e))
                         st.session_state["ct_search_result"] = None
 
         # ── 検索結果の表示 ──
         res = st.session_state.get("ct_search_result")
         if res:
             st.markdown("---")
-            st.markdown(t("stock_detail_hdr"))
+            st.markdown("**📊 銘柄詳細**")
 
             # 複数ヒット時は選択できるように
             if res["hit_count"] > 1:
                 hit_names = [n for n, _ in res["all_hits"]]
-                sel_name = st.selectbox(t("multi_hit_select"),
+                sel_name = st.selectbox("複数の銘柄がヒットしました。選択してください：",
                                          hit_names, key="ct_hit_select")
                 if sel_name != res["name"]:
                     # 選択が変わったら再取得
                     sel_ticker = dict(res["all_hits"])[sel_name]
-                    with st.spinner(t("loading_stock").format(sel_name)):
+                    with st.spinner("{} のデータ取得中...".format(sel_name)):
                         try:
                             df_sel = fetch_stock_data(sel_ticker, "2y")
                             if len(df_sel) >= 2:
@@ -3081,38 +2238,38 @@ elif pidx == PAGE_CUSTOM:
 
             # 銘柄詳細カード
             d_col1, d_col2, d_col3, d_col4 = st.columns(4)
-            d_col1.metric(t("stock_name_label"), res["name"])
-            d_col2.metric(t("ticker_col"), res["code"])
-            d_col3.metric(t("price_col"), f"¥{res['price']:,}")
+            d_col1.metric("銘柄名", res["name"])
+            d_col2.metric("コード", res["code"])
+            d_col3.metric("株価", f"¥{res['price']:,}")
             sign = "+" if res["change"] and res["change"] >= 0 else ""
-            d_col4.metric(t("return_1m_label"), f"{sign}{res['change']}%" if res["change"] else "N/A")
+            d_col4.metric("騰落率(1ヶ月)", f"{sign}{res['change']}%" if res["change"] else "N/A")
 
             d_col5, d_col6, d_col7, _ = st.columns(4)
             dc = res["day_change"]
-            d_col5.metric(t("day_change_col"), f"{'+'if dc and dc>=0 else ''}{dc}%" if dc else "N/A")
+            d_col5.metric("前日比", f"{'+'if dc and dc>=0 else ''}{dc}%" if dc else "N/A")
             d_col6.metric("RSI", f"{res['rsi']}" if res["rsi"] else "N/A")
-            d_col7.metric(t("ticker_col"), res["ticker"])
+            d_col7.metric("コード", res["ticker"])
 
             # 追加ボタン
             already = any(s["ticker"] == res["ticker"]
                           for s in st.session_state["new_stocks"])
             if already:
-                st.info(t('already_added').format(res['name']))
+                st.info("✅ **{}** はすでにリストに追加済みです。".format(res['name']))
             else:
-                if st.button(t('add_to_theme_btn').format(res['name']),
+                if st.button("＋ 「{}」をテーマに追加".format(res['name']),
                               type="primary", key="ct_add_btn"):
                     st.session_state["new_stocks"].append({
                         "name": res["name"],
                         "ticker": res["ticker"],
                     })
-                    st.success(t("custom_stock_added").format(res['name']))
+                    st.success("「{}」を追加しました！".format(res['name']))
                     st.session_state["ct_search_result"] = None
                     st.rerun()
 
         # ── 追加済み銘柄リスト ──
         if st.session_state["new_stocks"]:
             st.markdown("---")
-            st.markdown(t('added_stocks_hdr').format(len(st.session_state['new_stocks'])))
+            st.markdown("**📋 追加済み銘柄（{}件）**".format(len(st.session_state['new_stocks'])))
             for i, stock in enumerate(st.session_state["new_stocks"]):
                 r_col1, r_col2, r_col3 = st.columns([3, 2, 1])
                 with r_col1:
@@ -3121,19 +2278,19 @@ elif pidx == PAGE_CUSTOM:
                     st.caption(stock["ticker"])
                 with r_col3:
                     if st.button("🗑️", key=f"ns_del_{i}",
-                                  help=t("custom_stock_delete_help").format(stock['name'])):
+                                  help="{}を削除".format(stock['name'])):
                         st.session_state["new_stocks"].pop(i)
                         st.rerun()
 
         st.markdown("---")
         # ── テーマ保存 ──
-        if st.button(t("save_theme_btn"), type="primary", key="ct_save_btn"):
+        if st.button("✅ テーマを保存", type="primary", key="ct_save_btn"):
             if not new_theme_name:
-                st.error(t("err_no_name"))
+                st.error("テーマ名を入力してください")
             elif new_theme_name in DEFAULT_THEMES:
-                st.error(t("err_dup_name"))
+                st.error("デフォルトテーマと同じ名前は使えません")
             elif not st.session_state["new_stocks"]:
-                st.error(t("err_no_stocks"))
+                st.error("銘柄を1つ以上追加してください")
             else:
                 valid_stocks = {s["name"]: s["ticker"]
                                 for s in st.session_state["new_stocks"]
@@ -3141,30 +2298,30 @@ elif pidx == PAGE_CUSTOM:
                 st.session_state["custom_themes"][new_theme_name] = valid_stocks
                 st.session_state["new_stocks"] = []
                 st.session_state["ct_search_result"] = None
-                st.success(t("custom_theme_saved").format(new_theme_name))
+                st.success("「{}」を保存しました！テーマ一覧に反映されます。".format(new_theme_name))
                 st.rerun()
 
     with tab2:
         if not st.session_state["custom_themes"]:
-            st.info(t("custom_no_themes"))
+            st.info("まだカスタムテーマがありません。「新規作成」タブから作成してください。")
         else:
-            st.markdown(t("custom_existing_hdr"))
+            st.markdown("#### 作成済みカスタムテーマ")
             for ct_name, ct_stocks in list(st.session_state["custom_themes"].items()):
-                with st.expander(t("custom_theme_item").format(ct_name, len(ct_stocks))):
-                    st.write(t("stock_list_hdr"))
+                with st.expander("📌 {}（{}銘柄）".format(ct_name, len(ct_stocks))):
+                    st.write("**銘柄一覧：**")
                     for sn, ticker in ct_stocks.items():
                         st.write(f"・{sn}（{ticker}）")
 
                     col_edit1, col_edit2 = st.columns(2)
                     with col_edit1:
-                        if st.button(t("edit_btn"), key=f"edit_{ct_name}"):
+                        if st.button("✏️ 編集", key=f"edit_{ct_name}"):
                             st.session_state["editing_theme"] = ct_name
                             st.session_state["new_stocks"] = [{"name":k,"ticker":v} for k,v in ct_stocks.items()]
-                            st.info(t("edit_hint").format(ct_name))
+                            st.info("「新規作成」タブで「{}」を編集できます。保存すると上書きされます。".format(ct_name))
                     with col_edit2:
-                        if st.button(t("delete_btn"), key=f"del_{ct_name}"):
+                        if st.button("🗑️ 削除", key=f"del_{ct_name}"):
                             del st.session_state["custom_themes"][ct_name]
-                            st.success(t("custom_theme_deleted").format(ct_name))
+                            st.success("「{}」を削除しました".format(ct_name))
                             st.rerun()
 
 
@@ -3172,9 +2329,9 @@ elif pidx == PAGE_CUSTOM:
 # 使い方・Q&A
 # =====================
 elif pidx == PAGE_HOWTO:
-    st.subheader(t("page_howto"))
+    st.subheader("📖 使い方・Q&A")
 
-    _lang = st.session_state.get("app_language", "ja")
+    _
     _intro_title = I18N["howto_intro_title"][_lang]
     _intro_body  = I18N["howto_intro_body"][_lang]
 
@@ -3186,7 +2343,7 @@ elif pidx == PAGE_HOWTO:
 """, unsafe_allow_html=True)
 
     # 使い方
-    st.markdown(t("howto_section_title"))
+    st.markdown("### 📌 各ページの使い方")
     _guide_items = I18N["guide_items"][_lang]
     for icon_title, desc in _guide_items:
         st.markdown(f"""
@@ -3198,7 +2355,7 @@ elif pidx == PAGE_HOWTO:
 
     # Q&A
     st.markdown("---")
-    st.markdown(t("faq_title"))
+    st.markdown("### ❓ よくある質問（Q&A）")
     _qa_items = I18N["qa_items"][_lang]
     _q_prefix = "Q. " if _lang == "ja" else "Q. "
     _a_prefix = "**A.** "
@@ -3209,7 +2366,7 @@ elif pidx == PAGE_HOWTO:
     st.markdown("---")
     st.markdown(
         f"<div style='font-size:11px;color:#3a4560;text-align:center;padding:8px;'>"
-        f"{t('howto_feedback')}"
+        f"{"改善要望・バグ報告は GitHub Issues へ"}"
         f"</div>",
         unsafe_allow_html=True
     )
@@ -3218,9 +2375,9 @@ elif pidx == PAGE_HOWTO:
 # 免責事項
 # =====================
 elif pidx == PAGE_DISCLAIMER:
-    _lang = st.session_state.get("app_language", "ja")
+    _
     _title_suffix = "・利用規約" if _lang == "ja" else " / Terms of Use"
-    st.subheader(t("page_disclaimer") + _title_suffix)
+    st.subheader("⚖️ 免責事項" + _title_suffix)
 
     _sections = I18N["disclaimer_sections"][_lang]
     for title, body in _sections:
@@ -3243,109 +2400,23 @@ elif pidx == PAGE_DISCLAIMER:
 # 設定ページ
 # =====================
 elif pidx == PAGE_SETTINGS:
-    lang = st.session_state.get("app_language", "ja")
     ct   = st.session_state.get("color_theme", "dark")
     _c   = COLOR_THEMES.get(ct, COLOR_THEMES["dark"])
 
-    st.subheader(t("settings_title"))
+    st.subheader("⚙️ 設定")
     st.markdown("---")
 
     # ─── About ───
-    st.markdown(f"### {t('settings_about_title')}")
-    st.markdown(t("settings_about_body"))
+    st.markdown("### ℹ️ このアプリについて")
+    st.markdown("""**StockWaveJP** は、日本株のテーマ別騰落率・資金フロー・モメンタムを可視化する株式情報ツールです。
+約30テーマ・250銘柄のデータをリアルタイムに近い形で集計・表示します。
+投資判断の参考情報として活用してください（投資助言ではありません）。""")
     st.markdown("---")
 
-    # ─── 言語設定 ───
-    st.markdown(f"### {t('settings_lang_title')}")
-    st.markdown(t("settings_lang_desc"))
-
-    lang_options = {"🇯🇵  日本語 (Japanese)": "ja", "🇺🇸  English": "en"}
-    lang_labels   = list(lang_options.keys())
-    lang_values   = list(lang_options.values())
-    current_lang_label = lang_labels[lang_values.index(lang)] if lang in lang_values else lang_labels[0]
-
-    new_lang_label = st.radio(
-        "Language",
-        lang_labels,
-        index=lang_labels.index(current_lang_label),
-        horizontal=True,
-        label_visibility="collapsed",
-        key="settings_lang_radio",
-    )
-    new_lang = lang_options[new_lang_label]
-
     st.markdown("---")
-
-    # ─── カラーテーマ ───
-    st.markdown(f"### {t('settings_theme_title')}")
-    st.markdown(t("settings_theme_desc"))
-
-    _lkey = "label_en" if lang == "en" else "label"
-    theme_options = {
-        f"🌑  {COLOR_THEMES['dark'][_lkey]}":  "dark",
-        f"☀️  {COLOR_THEMES['light'][_lkey]}": "light",
-        f"🌊  {COLOR_THEMES['navy'][_lkey]}":  "navy",
-    }
-    theme_labels  = list(theme_options.keys())
-    theme_values  = list(theme_options.values())
-    current_theme_label = theme_labels[theme_values.index(ct)] if ct in theme_values else theme_labels[0]
-
-    new_theme_label = st.radio(
-        "Color Theme",
-        theme_labels,
-        index=theme_labels.index(current_theme_label),
-        horizontal=True,
-        label_visibility="collapsed",
-        key="settings_theme_radio",
-    )
-    new_theme = theme_options[new_theme_label]
-
-    _pc = COLOR_THEMES[new_theme]
-    _pc_label = _pc['label_en'] if lang == "en" else _pc['label']
-    _preview_word = "Preview" if lang == "en" else "プレビュー / Preview"
-    st.markdown(f"""
-<div style="margin-top:12px;padding:18px 22px;border-radius:10px;
-  background:{_pc['bg_card']};border:1px solid {_pc['border']};
-  max-width:400px;">
-  <div style="font-size:13px;font-weight:700;color:{_pc['text_primary']};margin-bottom:6px;">
-    {_pc_label} — {_preview_word}
-  </div>
-  <div style="font-size:12px;color:{_pc['text_secondary']};margin-bottom:4px;">
-    StockWaveJP · 株式波動 · 日本株テーマ分析
-  </div>
-  <div style="font-size:11px;color:{_pc['text_muted']};">
-    © 2026 StockWaveJP  |  For informational purposes only.
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ─── 適用ボタン ───
-    if st.button(t("settings_apply"), type="primary", use_container_width=False):
-        changed = False
-        if new_lang != lang:
-            st.session_state["app_language"] = new_lang
-            changed = True
-        if new_theme != ct:
-            st.session_state["color_theme"] = new_theme
-            changed = True
-        if changed:
-            st.success(t("settings_saved"))
-            st.rerun()
-        else:
-            if lang == "ja":
-                st.info(t("settings_no_change"))
-            else:
-                st.info("No changes were made.")
-
-    st.markdown("---")
-    # 現在の設定表示
     st.markdown(f"""
 <div style="font-size:11px;color:{_c['text_muted']};line-height:2;">
-{'現在の設定' if lang=='ja' else 'Current Settings'} ：
-言語 / Language = <b style="color:{_c['text_secondary']}">{'日本語' if lang=='ja' else 'English'}</b>　
-テーマ / Theme = <b style="color:{_c['text_secondary']}">{_c['label']} / {_c['label_en']}</b>
+現在の設定：テーマ = <b style="color:{_c['text_secondary']}">{_c['label']}</b>
 </div>
 """, unsafe_allow_html=True)
 
@@ -3353,7 +2424,7 @@ elif pidx == PAGE_SETTINGS:
 st.markdown("---")
 st.markdown(
     f"<div style='text-align:center;font-size:11px;color:#8090a8;padding:6px 0 4px;'>"
-    f"{t('footer')}"
+    f"© 2024 StockWaveJP — 投資助言ではありません"
     f"</div>",
     unsafe_allow_html=True
 )
