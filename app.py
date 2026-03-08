@@ -666,9 +666,9 @@ def calc_sharpe(series, rf=0.001):
 
 def format_large_number(n):
     if n is None: return "N/A"
-    if n >= 1e12: return f"{n/1e12:.1f}兆円"
-    elif n >= 1e8: return f"{n/1e8:.0f}億円"
-    return f"{n:,.0f}円"
+    if n >= 1e12: return f"{n/1e12:.1f}" + ("T¥" if st.session_state.get("app_language","ja")=="en" else "兆円")
+    elif n >= 1e8: return f"{n/1e8:.0f}" + ("B¥" if st.session_state.get("app_language","ja")=="en" else "億円")
+    return ("¥" if st.session_state.get("app_language","ja")=="en" else "") + f"{n:,.0f}" + ("" if st.session_state.get("app_language","ja")=="en" else "円")
 
 # =====================
 # キャッシュ付きデータ取得
@@ -900,7 +900,7 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
 
     fig.update_layout(
         xaxis=dict(
-            title="騰落率（%）", ticksuffix="%",
+            title=t("return_pct_axis"), ticksuffix="%",
             zeroline=True, zerolinecolor="#555", zerolinewidth=1,
             range=[min_v * 1.3 if min_v < 0 else -0.5,
                    max_v * 1.3 if max_v > 0 else 0.5],
@@ -1143,6 +1143,23 @@ I18N = {
     "ticker_col":            {"ja": "コード",                     "en": "Ticker"},
     "change_pct_col":        {"ja": "騰落率(%)",                  "en": "Return(%)"},
     "volume_chg_col":        {"ja": "出来高増減(%)",              "en": "Volume Chg(%)"},
+    "avg_return_label":      {"ja": "平均騰落率",                 "en": "Avg Return"},
+    "stock_count_label":     {"ja": "銘柄数",                    "en": "# Stocks"},
+    "stock_count_suffix":    {"ja": "銘柄",                      "en": " stocks"},
+    "return_pct_axis":       {"ja": "騰落率（%）",               "en": "Return (%)"},
+    "cum_return_axis":       {"ja": "累積リターン（%）",          "en": "Cum. Return (%)"},
+    "rsi_alert_buy":         {"ja": "⚠️買",  "en": "⚠️OB"},
+    "rsi_alert_sell":        {"ja": "⚠️売",  "en": "⚠️OS"},
+    "rsi_alert_ok":          {"ja": "✅",     "en": "✅"},
+    "col_52w_high":          {"ja": "52W高値","en": "52W High"},
+    "col_52w_low":           {"ja": "52W安値","en": "52W Low"},
+    "col_sharpe":            {"ja": "シャープ","en": "Sharpe"},
+    "col_rsi":               {"ja": "RSI",                     "en": "RSI"},
+    "heatmap_tab1":          {"ja": "🟥 期間別ヒートマップ",   "en": "🟥 Period Heatmap"},
+    "heatmap_tab2":          {"ja": "📅 月次推移ヒートマップ","en": "📅 Monthly Heatmap"},
+    "heatmap_tab3":          {"ja": "📈 折れ線グラフ",         "en": "📈 Line Chart"},
+    "stock_name_label":      {"ja": "銘柄名",                  "en": "Stock Name"},
+    "return_1m_label":       {"ja": "騰落率(1ヶ月)",           "en": "Return(1M)"},
     "trade_value_col":       {"ja": "売買代金(万円)",             "en": "Trade Val(¥10k)"},
     # ─── お気に入りページ ───
     "fav_title":             {"ja": "⭐ お気に入り銘柄",           "en": "⭐ Favorite Stocks"},
@@ -1448,6 +1465,312 @@ def tn(theme_name: str) -> str:
     entry = I18N.get(key, {})
     return entry.get("en", theme_name)
 
+# ── 銘柄名 日本語→英語 翻訳辞書 ──
+STOCK_EN = {
+    "ACSLエアロスペース":           "ACSL Aerospace",
+    "DOWAホールディングス":         "DOWA Holdings",
+    "FFRIセキュリティ":             "FFRI Security",
+    "GMOインターネット":            "GMO Internet",
+    "GMOフィナンシャルHD":          "GMO Financial HD",
+    "GMOペイメントゲートウェイ":    "GMO Payment Gateway",
+    "HISホールディングス":          "H.I.S. Holdings",
+    "JFEホールディングス":          "JFE Holdings",
+    "JR東日本":                     "JR East",
+    "JR東海":                       "JR Central",
+    "JR西日本":                     "JR West",
+    "Jパワー":                      "J-Power",
+    "MS&AD保険G":                   "MS&AD Insurance G",
+    "SBIホールディングス":          "SBI Holdings",
+    "SGホールディングス":           "SG Holdings",
+    "SOMPOホールディングス":        "SOMPO Holdings",
+    "T&Dホールディングス":          "T&D Holdings",
+    "Zホールディングス":            "Z Holdings",
+    "auカブコム証券":               "au Kabucom Securities",
+    "かんぽ生命":                   "Japan Post Insurance",
+    "さくらインターネット":         "Sakura Internet",
+    "ふくおかFG":                   "Fukuoka FG",
+    "みずほ":                       "Mizuho",
+    "みずほFG":                     "Mizuho FG",
+    "ゆうちょ銀行":                 "Japan Post Bank",
+    "りそな":                       "Resona",
+    "りそなHD":                     "Resona HD",
+    "アイシン":                     "Aisin",
+    "アイフル":                     "Aiful",
+    "アカツキ":                     "Akatsuki",
+    "アサヒグループHD":             "Asahi Group HD",
+    "アステラス製薬":               "Astellas Pharma",
+    "アドバンテスト":               "Advantest",
+    "アマダ":                       "Amada",
+    "イオン":                       "AEON",
+    "イビデン":                     "Ibiden",
+    "インターネットイニシアティブ":  "IIJ",
+    "インフォマート":               "Infomart",
+    "ウエストHD":                   "West HD",
+    "ウエルシアHD":                 "Welcia HD",
+    "ウシオ電機":                   "Ushio",
+    "エムスリー":                   "M3",
+    "エン・ジャパン":               "en Japan",
+    "エーザイ":                     "Eisai",
+    "オイシックス・ラ・大地":       "Oisix ra daichi",
+    "オプテージ（関西電力子会社）":  "Optage",
+    "オムロン":                     "Omron",
+    "オリエンタルランド":           "Oriental Land",
+    "オリエントコーポレーション":   "Orient Corp",
+    "オリックス":                   "Orix",
+    "オリンパス":                   "Olympus",
+    "オークマ":                     "Okuma",
+    "オービック":                   "Obic",
+    "カゴメ":                       "Kagome",
+    "カネカ":                       "Kaneka",
+    "カプコン":                     "Capcom",
+    "キヤノン":                     "Canon",
+    "キリンHD":                     "Kirin HD",
+    "キーエンス":                   "Keyence",
+    "クボタ":                       "Kubota",
+    "クレハ":                       "Kureha",
+    "グリー":                       "GREE",
+    "ケアネット":                   "CareNet",
+    "コナミ":                       "Konami",
+    "コナミグループ":               "Konami Group",
+    "コニカミノルタ":               "Konica Minolta",
+    "コマツ":                       "Komatsu",
+    "コンコルディア":               "Concordia FG",
+    "コーエーテクモ":               "Koei Tecmo",
+    "サイバーセキュリティクラウド":  "CyberSec Cloud",
+    "サントリー食品":               "Suntory Beverage",
+    "シスメックス":                 "Sysmex",
+    "シャープ":                     "Sharp",
+    "ジャパンマリンユナイテッド（JMU）": "JMU",
+    "スカパーJSATHD":               "SKY Perfect JSAT HD",
+    "スギHD":                       "Sugi HD",
+    "スクウェア・エニックス":       "Square Enix",
+    "スズキ":                       "Suzuki",
+    "セガサミー":                   "Sega Sammy",
+    "セガサミーHD":                 "Sega Sammy HD",
+    "セキド":                       "Sekido",
+    "セブン&アイ":                  "Seven & i",
+    "セブン&アイHD":                "Seven & i HD",
+    "センコーグループ":             "Senko Group",
+    "ソウルドアウト":               "Sold Out",
+    "ソシオネクスト":               "Socionext",
+    "ソニー":                       "Sony",
+    "ソニーグループ":               "Sony Group",
+    "ソフトバンク":                 "SoftBank",
+    "ソフトバンクG":                "SoftBank Group",
+    "ソリトンシステムズ":           "Soliton Systems",
+    "ダイキン工業":                 "Daikin Industries",
+    "ツムラ":                       "Tsumura",
+    "テラ":                         "Terra",
+    "テルモ":                       "Terumo",
+    "ディスコ":                     "Disco",
+    "デジタルアーツ":               "Digital Arts",
+    "デンソー":                     "Denso",
+    "トヨタ":                       "Toyota",
+    "トヨタ自動車":                 "Toyota Motor",
+    "トレンドマイクロ":             "Trend Micro",
+    "トーセイ":                     "Tosei",
+    "ドン・キホーテ（PPIH）":        "Don Quijote (PPIH)",
+    "ニコン":                       "Nikon",
+    "ニッスイ":                     "Nissui",
+    "ニデック":                     "Nidec",
+    "ニトリHD":                     "Nitori HD",
+    "ニプロ":                       "Nipro",
+    "ネクソン":                     "Nexon",
+    "バンダイナムコ":               "Bandai Namco",
+    "バンダイナムコHD":             "Bandai Namco HD",
+    "パナソニック":                 "Panasonic",
+    "パナソニックHD":               "Panasonic HD",
+    "パン・パシフィック":           "Pan Pacific Retail",
+    "パーソルHD":                   "Persol HD",
+    "ヒューリック":                 "Hulic",
+    "ファナック":                   "Fanuc",
+    "ファーストリテイリング":       "Fast Retailing",
+    "ファーマフーズ":               "PharmaFoods",
+    "フェローテック":               "Ferrotec",
+    "フクダ電子":                   "Fukuda Denshi",
+    "フジクラ":                     "Fujikura",
+    "ブリヂストン":                 "Bridgestone",
+    "ベネッセHD":                   "Benesse HD",
+    "ホンダ":                       "Honda",
+    "マイクロニクス":               "Micronics Japan",
+    "マツキヨコクミンHD":           "Matsukiyo Kokmin HD",
+    "マツダ":                       "Mazda",
+    "マネックスグループ":           "Monex Group",
+    "マネーフォワード":             "Money Forward",
+    "ミネベアミツミ":               "MinebeaMitsumi",
+    "メドレー":                     "Medley",
+    "メルカリ":                     "Mercari",
+    "ヤマトHD":                     "Yamato HD",
+    "ヤマハ":                       "Yamaha",
+    "ヤマハ発動機":                 "Yamaha Motor",
+    "ヤンマーHD":                   "Yanmar HD",
+    "リクルートHD":                 "Recruit HD",
+    "リコー":                       "Ricoh",
+    "リバーエレテック":             "River Eletec",
+    "リリカラ":                     "Lilycolor",
+    "リンクアンドモチベーション":   "Link & Motivation",
+    "ルネサス":                     "Renesas",
+    "ルネサスエレクトロニクス":     "Renesas Electronics",
+    "レオパレス21":                 "Leopalace21",
+    "レノバ":                       "Renova",
+    "レーザーテック":               "Lasertec",
+    "ロート製薬":                   "Rohto Pharma",
+    "ローム":                       "Rohm",
+    "七十七銀行":                   "77 Bank",
+    "三井E&S":                      "Mitsui E&S",
+    "三井不動産":                   "Mitsui Fudosan",
+    "三井住友":                     "SMBC",
+    "三井住友FG":                   "SMBC Group",
+    "三井物産":                     "Mitsui & Co.",
+    "三菱UFJ":                      "MUFG",
+    "三菱UFJ FG":                   "MUFG FG",
+    "三菱UFJ信託":                  "Mitsubishi UFJ Trust",
+    "三菱ケミカルG":                "Mitsubishi Chemical G",
+    "三菱ケミカルグループ":         "Mitsubishi Chemical Group",
+    "三菱マテリアル":               "Mitsubishi Materials",
+    "三菱商事":                     "Mitsubishi Corp.",
+    "三菱地所":                     "Mitsubishi Estate",
+    "三菱自動車":                   "Mitsubishi Motors",
+    "三菱重工業":                   "Mitsubishi Heavy Ind.",
+    "三菱電機":                     "Mitsubishi Electric",
+    "不二越":                       "Nachi-Fujikoshi",
+    "中外製薬":                     "Chugai Pharma",
+    "中部電力":                     "Chubu Electric",
+    "丸紅":                         "Marubeni",
+    "久光製薬":                     "Hisamitsu Pharma",
+    "九州電力":                     "Kyushu Electric",
+    "井関農機":                     "Iseki",
+    "京セラ":                       "Kyocera",
+    "京王電鉄":                     "Keio Railway",
+    "任天堂":                       "Nintendo",
+    "伊予銀行":                     "Iyo Bank",
+    "伊藤忠テクノソリューションズ":  "Itochu Techno-Sol.",
+    "伊藤忠商事":                   "Itochu Corp.",
+    "住友ゴム工業":                 "Sumitomo Rubber",
+    "住友不動産":                   "Sumitomo Realty",
+    "住友化学":                     "Sumitomo Chemical",
+    "住友商事":                     "Sumitomo Corp.",
+    "住友重機械工業":               "Sumitomo Heavy Ind.",
+    "住友金属鉱山":                 "Sumitomo Metal Mining",
+    "住友電気工業":                 "Sumitomo Electric",
+    "住友電装":                     "Sumitomo Wiring Sys.",
+    "信越化学工業":                 "Shin-Etsu Chemical",
+    "内海造船":                     "Uchida Shipbuilding",
+    "凸版印刷":                     "Toppan",
+    "出光興産":                     "Idemitsu Kosan",
+    "前田建設工業":                 "Maeda Construction",
+    "北海道銀行":                   "Hokkaido Bank",
+    "北陸電力":                     "Hokuriku Electric",
+    "参天製薬":                     "Santen Pharma",
+    "双日":                         "Sojitz",
+    "古河電気工業":                 "Furukawa Electric",
+    "名村造船所":                   "Namura Shipbuilding",
+    "味の素":                       "Ajinomoto",
+    "商船三井":                     "MOL",
+    "塩野義製薬":                   "Shionogi",
+    "大和ハウス工業":               "Daiwa House",
+    "大和工業":                     "Yamato Kogyo",
+    "大和証券G":                    "Daiwa Securities G",
+    "大和証券グループ":             "Daiwa Securities Group",
+    "大塚HD":                       "Otsuka HD",
+    "大成建設":                     "Taisei Construction",
+    "大日本印刷":                   "Dai Nippon Printing",
+    "大東建託":                     "Daito Trust",
+    "大林組":                       "Obayashi",
+    "大王製紙":                     "Daio Paper",
+    "大阪ガス":                     "Osaka Gas",
+    "大阪チタニウム":               "Osaka Titanium",
+    "太平洋金属":                   "Pacific Metals",
+    "安川電機":                     "Yaskawa Electric",
+    "富士フイルムHD":               "Fujifilm HD",
+    "富士通":                       "Fujitsu",
+    "富士電機":                     "Fuji Electric",
+    "小田急電鉄":                   "Odakyu Railway",
+    "小野薬品":                     "Ono Pharma",
+    "小野薬品工業":                 "Ono Pharmaceutical",
+    "山口FG":                       "Yamaguchi FG",
+    "山崎製パン":                   "Yamazaki Baking",
+    "川崎汽船":                     "K Line",
+    "川崎重工業":                   "Kawasaki Heavy Ind.",
+    "帝人":                         "Teijin",
+    "広島銀行":                     "Hiroshima Bank",
+    "弁護士ドットコム":             "Bengo4.com",
+    "日本エスリード":               "Japan Eslead",
+    "日本ハム":                     "Nippon Ham",
+    "日本取引所G":                  "JPX Group",
+    "日本板硝子":                   "Nippon Sheet Glass",
+    "日本水産":                     "Nippon Suisan",
+    "日本碍子":                     "NGK Insulators",
+    "日本精工":                     "NSK",
+    "日本航空電子工業":             "Japan Aviation Elec.",
+    "日本製鉄":                     "Nippon Steel",
+    "日本軽金属HD":                 "Nippon Light Metal HD",
+    "日本通運":                     "Nippon Express",
+    "日本郵船":                     "NYK Line",
+    "日本電信電話":                 "NTT",
+    "日本電気硝子":                 "Nippon Electric Glass",
+    "日東電工":                     "Nitto Denko",
+    "日清食品HD":                   "Nissin Food HD",
+    "日産自動車":                   "Nissan Motor",
+    "日立建機":                     "Hitachi Construction",
+    "日立製作所":                   "Hitachi",
+    "日鉄ソリューションズ":         "NS Solutions",
+    "旭化成":                       "Asahi Kasei",
+    "明治HD":                       "Meiji HD",
+    "星野リゾートReit":             "Hoshino Resort REIT",
+    "本田技研工業":                 "Honda Motor",
+    "村田製作所":                   "Murata Mfg.",
+    "東レ":                         "Toray",
+    "東京エレクトロン":             "Tokyo Electron",
+    "東京ガス":                     "Tokyo Gas",
+    "東京海上HD":                   "Tokio Marine HD",
+    "東京精密":                     "Tokyo Seimitsu",
+    "東京製鐵":                     "Tokyo Steel",
+    "東京計器":                     "Tokyo Keiki",
+    "東京電力HD":                   "TEPCO HD",
+    "東急":                         "Tokyu",
+    "東急不動産HD":                 "Tokyu Fudosan HD",
+    "東邦チタニウム":               "Toho Titanium",
+    "東邦銀行":                     "Toho Bank",
+    "松井証券":                     "Matsui Securities",
+    "楽天グループ":                 "Rakuten Group",
+    "武田薬品":                     "Takeda",
+    "武田薬品工業":                 "Takeda Pharmaceutical",
+    "江崎グリコ":                   "Ezaki Glico",
+    "清水建設":                     "Shimizu Construction",
+    "滋賀銀行":                     "Shiga Bank",
+    "琉球銀行":                     "Bank of the Ryukyus",
+    "神戸製鋼所":                   "Kobe Steel",
+    "積水ハウス":                   "Sekisui House",
+    "第一三共":                     "Daiichi Sankyo",
+    "第一生命":                     "Dai-ichi Life",
+    "第一生命HD":                   "Dai-ichi Life HD",
+    "良品計画":                     "Ryohin Keikaku",
+    "花王":                         "Kao",
+    "荏原製作所":                   "Ebara",
+    "藤田観光":                     "Fujita Kanko",
+    "西日本旅客鉄道":               "JR West",
+    "西松建設":                     "Nishimatsu Construction",
+    "豊和工業":                     "Howa Machinery",
+    "豊田通商":                     "Toyota Tsusho",
+    "近鉄エクスプレス":             "Kintetsu Express",
+    "近鉄グループHD":               "Kintetsu Group HD",
+    "野村HD":                       "Nomura HD",
+    "野村不動産HD":                 "Nomura Real Estate HD",
+    "野村総合研究所":               "NRI",
+    "長谷工コーポレーション":       "Haseko",
+    "関西電力":                     "Kansai Electric",
+    "静岡銀行":                     "Shizuoka Bank",
+    "鹿島建設":                     "Kajima",
+}
+
+def sn(stock_name: str) -> str:
+    """銘柄名を現在の言語に翻訳（英語未登録の場合は原文）"""
+    lang = st.session_state.get("app_language", "ja")
+    if lang == "ja":
+        return stock_name
+    return STOCK_EN.get(stock_name, stock_name)
+
 # PAGESリストを言語設定に応じて動的生成
 def get_pages():
     return [
@@ -1539,7 +1862,9 @@ st.sidebar.markdown(
 
 # now は毎回リアルタイムで現在時刻を取得（キャッシュに依存しない）
 def _get_now_str():
-    return (_dt2.datetime.utcnow() + _dt2.timedelta(hours=9)).strftime("%Y年%m月%d日 %H:%M")
+    dt = _dt2.datetime.utcnow() + _dt2.timedelta(hours=9)
+    lang = st.session_state.get("app_language","ja")
+    return dt.strftime("%Y-%m-%d %H:%M") if lang=="en" else dt.strftime("%Y年%m月%d日 %H:%M")
 now = _get_now_str()
 themes = get_all_themes()
 all_stocks = {}
@@ -2025,9 +2350,9 @@ elif pidx == PAGE_HEATMAP:
 
     # タブ切り替え
     tab_heat, tab_monthly, tab_line = st.tabs([
-        "🟥 期間別ヒートマップ",
-        "📅 月次推移ヒートマップ",
-        "📈 折れ線グラフ",
+        t("heatmap_tab1"),
+        t("heatmap_tab2"),
+        t("heatmap_tab3"),
     ])
 
     # ============================================================
@@ -2165,7 +2490,7 @@ elif pidx == PAGE_HEATMAP:
                 st.session_state["hl_preset"] = all_theme_names; st.rerun()
 
         selected_line_themes = st.multiselect(
-            "表示テーマを選択（複数OK）",
+            t("trend_manual_label"),
             all_theme_names,
             default=st.session_state["hl_preset"],
         )
@@ -2188,7 +2513,7 @@ elif pidx == PAGE_HEATMAP:
             fig_line.add_hline(y=0, line_dash="dash", line_color="#666", line_width=1)
             fig_line.update_layout(
                 xaxis=dict(title=t("theme_detail_period"), categoryorder="array", categoryarray=period_cols),
-                yaxis=dict(title="騰落率（%）", ticksuffix="%"),
+                yaxis=dict(title=t("return_pct_axis"), ticksuffix="%"),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="white", size=11), height=460,
                 legend=dict(orientation="h", x=0, y=-0.22, font=dict(size=10)),
@@ -2204,7 +2529,7 @@ elif pidx == PAGE_HEATMAP:
 elif pidx == PAGE_COMPARE:
     st.subheader(t("compare_chart_title"))
     period = period_buttons(key_prefix="comp")
-    selected_themes_cmp = st.multiselect("比較するテーマを選択", list(themes.keys()),
+    selected_themes_cmp = st.multiselect(t("compare_select"), list(themes.keys()),
                                           default=list(themes.keys())[:2])
     if len(selected_themes_cmp) < 2:
         st.warning(t("compare_warn"))
@@ -2232,7 +2557,7 @@ elif pidx == PAGE_COMPARE:
         fig_comp.add_hline(y=0, line_dash="dash", line_color="gray")
         fig_comp.update_layout(
             xaxis=dict(title=t("xaxis_date"), dtick="M1", tickformat="%y/%m"),
-            yaxis=dict(title="累積リターン（%）", ticksuffix="%"),
+            yaxis=dict(title=t("cum_return_axis"), ticksuffix="%"),
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="white", size=12), height=500,
             legend=dict(orientation="h", y=1.1),
@@ -2272,7 +2597,7 @@ elif pidx == PAGE_MACRO:
     fig_macro.add_hline(y=0, line_dash="dash", line_color="gray")
     fig_macro.update_layout(
         xaxis=dict(title=t("xaxis_date"), dtick="M1", tickformat="%y/%m"),
-        yaxis=dict(title="累積リターン（%）", ticksuffix="%"),
+        yaxis=dict(title=t("cum_return_axis"), ticksuffix="%"),
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
         font=dict(color="white", size=12), height=500,
         legend=dict(orientation="h", y=1.1),
@@ -2292,7 +2617,7 @@ elif pidx == PAGE_MARKET_RANK:
         with st.expander(f"📌 {seg_name}", expanded=True):
             with st.spinner(t("loading_seg").format(seg_name)):
                 seg_results = []
-                for sn, ticker in seg_stocks.items():
+                for stock_name, ticker in seg_stocks.items():
                     try:
                         df = fetch_stock_data(ticker, "2y")
                         if len(df) < 2: continue
@@ -2305,10 +2630,10 @@ elif pidx == PAGE_MARKET_RANK:
                         rv = target_df["Volume"].mean()
                         trade_val = int(rv * price)
                         seg_results.append({
-                            "銘柄": sn, "株価": f"¥{price:,}",
-                            "前日比": f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
+                            t("stock_col"): sn(stock_name), t("price_col"): f"¥{price:,}",
+                            t("day_change_col"): f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
                             "騰落率": change,
-                            "売買代金": format_large_number(trade_val),
+                            t("trade_val_col"): format_large_number(trade_val),
                             "ticker": ticker,
                         })
                     except: pass
@@ -2324,7 +2649,7 @@ elif pidx == PAGE_MARKET_RANK:
                 col_t, col_b = st.columns(2)
                 with col_t:
                     st.markdown(t("top5_stocks"))
-                    t_labels = [f"{i+1}位 {r['銘柄']}" for i, r in enumerate(top5)]
+                    t_labels = [f"{i+1}位 {r[t('stock_col')]}" for i, r in enumerate(top5)]
                     t_values = [r["騰落率"] for r in top5]
                     t_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in t_values]
                     st.plotly_chart(make_bar_chart(t_labels, t_values, t_colors),
@@ -2332,7 +2657,7 @@ elif pidx == PAGE_MARKET_RANK:
                 with col_b:
                     if bot5:
                         st.markdown(t("bot5_stocks"))
-                        b_labels = [f"{n_seg-4+i}位 {r['銘柄']}" for i, r in enumerate(bot5)]
+                        b_labels = [f"{n_seg-4+i}位 {r[t('stock_col')]}" for i, r in enumerate(bot5)]
                         b_values = [r["騰落率"] for r in bot5]
                         b_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in b_values]
                         st.plotly_chart(make_bar_chart(b_labels, b_values, b_colors),
@@ -2340,8 +2665,8 @@ elif pidx == PAGE_MARKET_RANK:
 
                 # 上位5件テーブル
                 df_top5 = pd.DataFrame([{
-                    t("stock_col"): r["銘柄"], t("price_col"): r["株価"],
-                    t("day_change_col"): r["前日比"],
+                    t("stock_col"): r[t("stock_col")], t("price_col"): r[t("price_col")],
+                    t("day_change_col"): r[t("day_change_col")],
                     t("change_col"): f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
                     t("trade_val_col"): r["売買代金"],
                 } for r in top5]).set_index(t("stock_col"))
@@ -2351,8 +2676,8 @@ elif pidx == PAGE_MARKET_RANK:
                 with st.expander(t("show_all_stocks").format(n_seg)):
                     df_all_seg = pd.DataFrame([{
                         t("rank_col"): t("rank_suffix").format(i+1),
-                        t("stock_col"): r["銘柄"], t("price_col"): r["株価"],
-                        t("day_change_col"): r["前日比"],
+                        t("stock_col"): r[t("stock_col")], t("price_col"): r[t("price_col")],
+                        t("day_change_col"): r[t("day_change_col")],
                         t("change_col"): f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
                         t("trade_val_col"): r["売買代金"],
                     } for i, r in enumerate(seg_results)]).set_index(t("rank_col"))
@@ -2372,7 +2697,7 @@ elif pidx == PAGE_FAVORITES:
     else:
         with st.spinner(t("loading")):
             fav_results = []
-            for sn, ticker in st.session_state["favorites"].items():
+            for stock_name, ticker in st.session_state["favorites"].items():
                 try:
                     df = fetch_stock_data(ticker, "2y")
                     if len(df) < 2: continue
@@ -2384,13 +2709,13 @@ elif pidx == PAGE_FAVORITES:
                     price = int(target_df["Close"].iloc[-1])
                     day_c = round((df["Close"].iloc[-1]-df["Close"].iloc[-2])/df["Close"].iloc[-2]*100,2) if len(df)>=2 else None
                     fav_results.append({
-                        "銘柄":sn,"ticker":ticker,"change":change,
+                        t("stock_col"): sn(stock_name),"ticker":ticker,"change":change,
                         "price":price,"rsi":rsi_val,"sharpe":sharpe,"day_change":day_c,
                     })
                 except: pass
 
         fav_results.sort(key=lambda x: x["change"], reverse=True)
-        fav_labels = [r["銘柄"] for r in fav_results]
+        fav_labels = [r[t("stock_col")] for r in fav_results]
         fav_values = [r["change"] for r in fav_results]
         fav_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in fav_values]
         st.plotly_chart(make_bar_chart(fav_labels, fav_values, fav_colors),
@@ -2399,16 +2724,16 @@ elif pidx == PAGE_FAVORITES:
         table_data = []
         for r in fav_results:
             rsi = r.get("rsi")
-            rsi_alert = "⚠️買" if rsi and rsi>70 else "⚠️売" if rsi and rsi<30 else "✅"
+            rsi_alert = t("rsi_alert_buy") if rsi and rsi>70 else t("rsi_alert_sell") if rsi and rsi<30 else t("rsi_alert_ok")
             day_c = r.get("day_change")
             table_data.append({
-                "銘柄":r["銘柄"], "株価":f"¥{r['price']:,}",
-                "前日比":f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
-                "騰落率":f"🔴 +{r['change']}%" if r["change"]>0 else f"🟢 {r['change']}%",
-                "RSI":f"{rsi} {rsi_alert}" if rsi else "N/A",
-                "シャープ":f"{r['sharpe']}" if r["sharpe"] else "N/A",
+                t("stock_col"): r[t("stock_col")], t("price_col"): f"¥{r['price']:,}",
+                t("day_change_col"): f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
+                t("change_col"):f"🔴 +{r['change']}%" if r["change"]>0 else f"🟢 {r['change']}%",
+                t("col_rsi"):f"{rsi} {rsi_alert}" if rsi else "N/A",
+                t("col_sharpe"):f"{r['sharpe']}" if r["sharpe"] else "N/A",
             })
-        df_fav = pd.DataFrame(table_data).set_index("銘柄")
+        df_fav = pd.DataFrame(table_data).set_index(t("stock_col"))
         st.dataframe(df_fav, use_container_width=True)
         st.download_button(t("fav_csv"), df_fav.to_csv(encoding="utf-8-sig"),
                            f"favorites_{now}.csv", "text/csv")
@@ -2443,9 +2768,9 @@ elif pidx == PAGE_THEME_DETAIL:
         c_val = result["平均騰落率(%)"]
         v_val = result["出来高増減(%)"]
         col_h1, col_h2, col_h3 = st.columns(3)
-        col_h1.metric("平均騰落率", f"{'🔴 +' if c_val>0 else '🟢 '}{c_val}%")
-        col_h2.metric("出来高増減", f"{'📈 +' if v_val>0 else '📉 '}{v_val}%")
-        col_h3.metric("銘柄数", f"{len(stocks_d)}銘柄")
+        col_h1.metric(t("avg_return_label"), f"{'🔴 +' if c_val>0 else '🟢 '}{c_val}%")
+        col_h2.metric(t("volume_chg_col"), f"{'📈 +' if v_val>0 else '📉 '}{v_val}%")
+        col_h3.metric(t("stock_count_label"), f"{len(stocks_d)}{t('stock_count_suffix')}")
 
         # 個別銘柄バーチャート
         theme_s_map = themes.get(selected_theme, {})
@@ -2472,7 +2797,7 @@ elif pidx == PAGE_THEME_DETAIL:
             st.markdown(t("vol_individual"))
             vol_rank = sorted(stocks_d.items(), key=lambda x: x[1]["volume"], reverse=True)
             vr_df = pd.DataFrame([
-                {"順位": f"{i+1}位", "銘柄": k, "出来高": f"{v['volume']:,}"}
+                {t("rank_col"): t("rank_suffix").format(i+1), t("stock_col"): sn(k), t("volume_col"): f"{v['volume']:,}"}
                 for i, (k, v) in enumerate(vol_rank)
             ]).set_index(t("rank_col"))
             st.dataframe(vr_df, use_container_width=True)
@@ -2480,7 +2805,7 @@ elif pidx == PAGE_THEME_DETAIL:
             st.markdown(t("tv_individual"))
             tv_rank = sorted(stocks_d.items(), key=lambda x: x[1]["trade_value"], reverse=True)
             tvr_df = pd.DataFrame([
-                {"順位": f"{i+1}位", "銘柄": k, "売買代金": format_large_number(v["trade_value"])}
+                {t("rank_col"): t("rank_suffix").format(i+1), t("stock_col"): sn(k), t("trade_val_col"): format_large_number(v["trade_value"])}
                 for i, (k, v) in enumerate(tv_rank)
             ]).set_index(t("rank_col"))
             st.dataframe(tvr_df, use_container_width=True)
@@ -2489,23 +2814,23 @@ elif pidx == PAGE_THEME_DETAIL:
         st.markdown("---")
         st.markdown(t("stock_detail_table"))
         stock_table = []
-        for sn, d in stocks_d.items():
+        for stock_name, d in stocks_d.items():
             rsi = d.get("rsi")
-            rsi_alert = "⚠️買" if rsi and rsi>70 else "⚠️売" if rsi and rsi<30 else "✅"
+            rsi_alert = t("rsi_alert_buy") if rsi and rsi>70 else t("rsi_alert_sell") if rsi and rsi<30 else t("rsi_alert_ok")
             day_c = d.get("day_change")
-            ticker_raw = theme_s_map.get(sn, "")
+            ticker_raw = theme_s_map.get(stock_name, "")
             code = ticker_raw.replace(".T","") if ticker_raw else ""
             stock_table.append({
-                "銘柄": sn, "コード": code,
-                "株価": f"¥{int(d['price']):,}",
-                "前日比": f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
-                "騰落率": f"🔴 +{d['change']}%" if d["change"]>0 else f"🟢 {d['change']}%",
-                "RSI": f"{rsi} {rsi_alert}" if rsi else "N/A",
-                "シャープ": f"{d['sharpe']}" if d["sharpe"] else "N/A",
-                "52W高値": f"¥{int(d['52w_high']):,}" if d["52w_high"] else "N/A",
-                "52W安値": f"¥{int(d['52w_low']):,}" if d["52w_low"] else "N/A",
+                t("stock_col"): sn(stock_name), t("ticker_col"): code,
+                t("price_col"): f"¥{int(d['price']):,}",
+                t("day_change_col"): f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
+                t("change_col"): f"🔴 +{d['change']}%" if d["change"]>0 else f"🟢 {d['change']}%",
+                t("col_rsi"): f"{rsi} {rsi_alert}" if rsi else "N/A",
+                t("col_sharpe"): f"{d['sharpe']}" if d["sharpe"] else "N/A",
+                t("col_52w_high"): f"¥{int(d['52w_high']):,}" if d["52w_high"] else "N/A",
+                t("col_52w_low"): f"¥{int(d['52w_low']):,}" if d["52w_low"] else "N/A",
             })
-        df_stock = pd.DataFrame(stock_table).set_index("銘柄")
+        df_stock = pd.DataFrame(stock_table).set_index(t("stock_col"))
         st.dataframe(df_stock, use_container_width=True)
         st.download_button(f"📥 {selected_theme} CSV",
                            df_stock.to_csv(encoding="utf-8-sig"),
@@ -2739,17 +3064,17 @@ elif pidx == PAGE_CUSTOM:
 
             # 銘柄詳細カード
             d_col1, d_col2, d_col3, d_col4 = st.columns(4)
-            d_col1.metric("銘柄名", res["name"])
-            d_col2.metric("証券コード", res["code"])
-            d_col3.metric("株価", f"¥{res['price']:,}")
+            d_col1.metric(t("stock_name_label"), res["name"])
+            d_col2.metric(t("ticker_col"), res["code"])
+            d_col3.metric(t("price_col"), f"¥{res['price']:,}")
             sign = "+" if res["change"] and res["change"] >= 0 else ""
-            d_col4.metric("騰落率(1ヶ月)", f"{sign}{res['change']}%" if res["change"] else "N/A")
+            d_col4.metric(t("return_1m_label"), f"{sign}{res['change']}%" if res["change"] else "N/A")
 
             d_col5, d_col6, d_col7, _ = st.columns(4)
             dc = res["day_change"]
-            d_col5.metric("前日比", f"{'+'if dc and dc>=0 else ''}{dc}%" if dc else "N/A")
+            d_col5.metric(t("day_change_col"), f"{'+'if dc and dc>=0 else ''}{dc}%" if dc else "N/A")
             d_col6.metric("RSI", f"{res['rsi']}" if res["rsi"] else "N/A")
-            d_col7.metric("ティッカー", res["ticker"])
+            d_col7.metric(t("ticker_col"), res["ticker"])
 
             # 追加ボタン
             already = any(s["ticker"] == res["ticker"]
