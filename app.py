@@ -1031,7 +1031,6 @@ def get_pages():
         "📣 お知らせ",
         "📖 使い方",
         "⚖️ 免責事項",
-        "⚙️ 設定",
     ]
 
 PAGES = get_pages()
@@ -1126,7 +1125,6 @@ PAGE_CUSTOM        = 10
 PAGE_NEWS          = 11
 PAGE_HOWTO         = 12
 PAGE_DISCLAIMER    = 13
-PAGE_SETTINGS      = 14
 
 pidx = st.session_state.get("current_page_idx", 0)
 
@@ -2330,55 +2328,89 @@ elif pidx == PAGE_CUSTOM:
 elif pidx == PAGE_HOWTO:
     st.subheader("📖 使い方・Q&A")
 
-    _
-    _intro_title = I18N["howto_intro_title"][_lang]
-    _intro_body  = I18N["howto_intro_body"][_lang]
-
-    st.markdown(f"""
+    st.markdown("""
 <div style="background:#0d1020;border:1px solid #1a1e30;border-radius:12px;padding:20px 22px;margin-bottom:16px;">
-  <div style="font-size:16px;font-weight:700;margin-bottom:12px;color:#e8eaf0;">{_intro_title}</div>
-  <div style="font-size:13px;color:#8090a8;line-height:1.9;">{_intro_body}</div>
+  <div style="font-size:16px;font-weight:700;margin-bottom:12px;color:#e8eaf0;">StockWaveJP とは？</div>
+  <div style="font-size:13px;color:#8090a8;line-height:1.9;">
+    日本株のテーマ別騰落率・資金フロー・モメンタムをリアルタイムに近い形で可視化するツールです。<br>
+    約30テーマ・250銘柄のデータを自動集計し、投資テーマの強弱を素早く把握できます。<br>
+    ※ 本ツールは投資判断の参考情報として提供するものであり、投資助言ではありません。
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
-    # 使い方
     st.markdown("### 📌 各ページの使い方")
-    _guide_items = I18N["guide_items"][_lang]
-    for icon_title, desc in _guide_items:
+    _guide = [
+        ("📊 テーマ一覧", "全テーマの平均騰落率・出来高増減をランキング形式で表示。期間（1日〜2年）を切り替えて確認できます。"),
+        ("📡 騰落モメンタム", "テーマごとの短期・中期モメンタムを比較。強いトレンドのテーマを素早く発見できます。"),
+        ("💹 資金フロー", "売買代金・出来高の増減からマネーフローを分析します。"),
+        ("📈 騰落推移", "テーマの騰落率を時系列で折れ線グラフ表示。複数テーマの比較も可能です。"),
+        ("🔥 ヒートマップ", "テーマ×期間のマトリクスを色で可視化。全体感を一目で把握できます。"),
+        ("📉 テーマ比較", "複数テーマを選んで騰落率を並べて比較します。"),
+        ("🌍 マクロ比較", "日経平均・ドル円・S&P500・TOPIXを同一グラフで比較します。"),
+        ("📋 市場別ランキング", "日経225・プライム・スタンダード・グロース市場別の騰落率ランキングです。"),
+        ("🔍 テーマ別詳細", "テーマを選ぶと構成銘柄の詳細データ（RSI・シャープレシオ・52週高値安値）を確認できます。"),
+        ("⭐ お気に入り", "気になる銘柄をお気に入り登録して一覧表示できます。"),
+        ("🎨 カスタムテーマ", "独自のテーマ・銘柄リストを作成して追跡できます。"),
+    ]
+    for title, desc in _guide:
         st.markdown(f"""
 <div style="border-left:3px solid #ff4b4b;padding:8px 14px;margin-bottom:10px;background:#0d1020;border-radius:0 8px 8px 0;">
-  <div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:3px;">{icon_title}</div>
+  <div style="font-size:13px;font-weight:700;color:#e8eaf0;margin-bottom:3px;">{title}</div>
   <div style="font-size:12px;color:#8090a8;line-height:1.7;">{desc}</div>
 </div>
 """, unsafe_allow_html=True)
 
-    # Q&A
     st.markdown("---")
     st.markdown("### ❓ よくある質問（Q&A）")
-    _qa_items = I18N["qa_items"][_lang]
-    _q_prefix = "Q. " if _lang == "ja" else "Q. "
-    _a_prefix = "**A.** "
-    for q, a in _qa_items:
-        with st.expander(f"{_q_prefix}{q}"):
-            st.markdown(f"{_a_prefix}{a}")
+    _qa = [
+        ("データはどのくらいの頻度で更新されますか？",
+         "市場時間中（9:00〜15:35）は約3分ごと、時間外は約30分ごとに自動更新されます。"),
+        ("銘柄データのソースは？",
+         "Yahoo Finance（yfinance ライブラリ）経由で取得しています。若干のタイムラグがある場合があります。"),
+        ("お気に入りはどこに保存されますか？",
+         "ブラウザのセッション内に保存されます。ページを閉じるとリセットされます。"),
+        ("カスタムテーマは永続化されますか？",
+         "現在はセッション内のみです。ページを再読み込みするとリセットされます。"),
+        ("データが取得できない銘柄があります",
+         "上場廃止・ティッカー変更・yfinanceの一時的なエラーの可能性があります。しばらく待ってから再試行してください。"),
+    ]
+    for q, a in _qa:
+        with st.expander(f"Q. {q}"):
+            st.markdown(f"**A.** {a}")
 
     st.markdown("---")
     st.markdown(
-        f"<div style='font-size:11px;color:#3a4560;text-align:center;padding:8px;'>"
-        f"{"改善要望・バグ報告は GitHub Issues へ"}"
-        f"</div>",
+        "<div style='font-size:11px;color:#3a4560;text-align:center;padding:8px;'>"
+        "改善要望・バグ報告は GitHub Issues へ"
+        "</div>",
         unsafe_allow_html=True
     )
+
 
 # =====================
 # 免責事項
 # =====================
 elif pidx == PAGE_DISCLAIMER:
-    _
-    _title_suffix = "・利用規約" if _lang == "ja" else " / Terms of Use"
-    st.subheader("⚖️ 免責事項" + _title_suffix)
+    st.subheader("⚖️ 免責事項・利用規約")
 
-    _sections = I18N["disclaimer_sections"][_lang]
+    _sections = [
+        ("📋 免責事項",
+         "本ツールで提供する情報は投資判断の参考を目的とした情報提供のみを目的としており、特定の銘柄や金融商品の売買を推奨・勧誘するものではありません。"
+         "投資に関する最終判断はご自身の責任において行ってください。"),
+        ("📊 データについて",
+         "データは Yahoo Finance（yfinance）経由で取得しています。データの正確性・完全性・適時性については保証しません。"
+         "システム障害・通信障害等によりデータが取得できない場合があります。"),
+        ("⚠️ 投資リスクについて",
+         "株式投資には価格変動リスク・流動性リスク等があり、投資元本が保証されるものではありません。"
+         "過去の実績は将来の成果を保証するものではありません。"),
+        ("🔒 個人情報・プライバシー",
+         "本ツールはユーザーの個人情報を収集・保存しません。"
+         "お気に入り・カスタムテーマ等のデータはブラウザのセッション内にのみ保存され、サーバーには送信されません。"),
+        ("📝 著作権・利用条件",
+         "本ツールのソースコードは GitHub にて公開しています。非商用・個人利用の範囲で自由にご利用いただけます。"
+         "商用利用・再配布の際はお問い合わせください。"),
+    ]
     for title, body in _sections:
         st.markdown(f"""
 <div style="border:1px solid #1a1e30;border-radius:10px;padding:16px 18px;margin-bottom:14px;background:#0d1020;">
@@ -2387,37 +2419,6 @@ elif pidx == PAGE_DISCLAIMER:
 </div>
 """, unsafe_allow_html=True)
 
-    _footer_text = I18N["disclaimer_footer"][_lang]
-    st.markdown(
-        f"<div style='text-align:center;font-size:11px;color:#3a4560;margin-top:24px;padding:12px;"
-        f"border-top:1px solid #1a1e30;'>{_footer_text}</div>",
-        unsafe_allow_html=True
-    )
-
-
-# =====================
-# 設定ページ
-# =====================
-elif pidx == PAGE_SETTINGS:
-    ct   = st.session_state.get("color_theme", "dark")
-    _c   = COLOR_THEMES.get(ct, COLOR_THEMES["dark"])
-
-    st.subheader("⚙️ 設定")
-    st.markdown("---")
-
-    # ─── About ───
-    st.markdown("### ℹ️ このアプリについて")
-    st.markdown("""**StockWaveJP** は、日本株のテーマ別騰落率・資金フロー・モメンタムを可視化する株式情報ツールです。
-約30テーマ・250銘柄のデータをリアルタイムに近い形で集計・表示します。
-投資判断の参考情報として活用してください（投資助言ではありません）。""")
-    st.markdown("---")
-
-    st.markdown("---")
-    st.markdown(f"""
-<div style="font-size:11px;color:{_c['text_muted']};line-height:2;">
-現在の設定：テーマ = <b style="color:{_c['text_secondary']}">{_c['label']}</b>
-</div>
-""", unsafe_allow_html=True)
 
 # ── メインエリア フッター（全ページ共通・分岐の外側） ──
 st.markdown("---")
