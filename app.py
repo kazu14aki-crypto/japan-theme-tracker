@@ -890,7 +890,7 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
                 y=i,
                 xref="paper",
                 yref="y",
-                text=f"<b>{rank_num}位</b>",
+                text=f"<b>#{rank_num}</b>" if st.session_state.get("app_language","ja")=="en" else f"<b>{rank_num}位</b>",
                 showarrow=False,
                 xanchor="left",
                 yanchor="middle",
@@ -921,10 +921,10 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
     )
     return fig
 
-def make_price_chart(df, display_df, chart_type="ローソク足", show_ma=True):
+def make_price_chart(df, display_df, chart_type="candlestick", show_ma=True):
     """株価チャート：目盛りを月単位に設定"""
     fig = go.Figure()
-    if chart_type == "ローソク足":
+    if chart_type == "candlestick":
         fig.add_trace(go.Candlestick(
             x=display_df.index, open=display_df["Open"], high=display_df["High"],
             low=display_df["Low"], close=display_df["Close"],
@@ -1962,7 +1962,7 @@ if pidx == PAGE_THEME_LIST:
             for i, r in enumerate(disp_vol)
         ]
         st.dataframe(pd.DataFrame(vol_rows).set_index(t("rank_col")), use_container_width=True)
-        btn_label_v = "▲ 閉じる" if show_v else f"▼ 6位以下を表示（残り{len(vol_sorted_all)-5}件）"
+        btn_label_v = t("btn_close") if show_v else t("btn_show_more").format(len(vol_sorted_all)-5)
         if st.button(btn_label_v, key="btn_vol_toggle", use_container_width=True):
             st.session_state["show_vol_all"] = not show_v
             st.rerun()
@@ -2178,17 +2178,24 @@ elif pidx == PAGE_TREND:
         )
 
         all_theme_names = list(trend_data.keys())
+        # 英語表示用: 日本語テーマ名 → 英語名 の変換
+        _en2jp_tab3 = {tn(k): k for k in all_theme_names}
+        _all_names_en = [tn(k) for k in all_theme_names]
+        _default_sel_en = [tn(k) for k in default_sel]
+
         if mode == t("trend_mode_top"):
-            selected = default_sel
+            selected_en = _default_sel_en
         elif mode == t("trend_mode_manual"):
-            selected = st.multiselect(
+            selected_en = st.multiselect(
                 t("trend_manual_label"),
-                all_theme_names,
-                default=default_sel,
+                _all_names_en,
+                default=_default_sel_en,
                 key="trend_manual_sel",
             )
         else:
-            selected = all_theme_names
+            selected_en = _all_names_en
+        # 英語名→日本語名（内部キー）に逆引き
+        selected = [_en2jp_tab3.get(n, n) for n in selected_en]
 
         if not selected:
             st.info(t("select_theme_prompt"))
@@ -2258,7 +2265,7 @@ elif pidx == PAGE_TREND:
                 st.download_button(
                     t("csv_download_all"),
                     csv_df.to_csv(index=False, encoding="utf-8-sig"),
-                    f"テーマ騰落推移_{trend_period}_{now}.csv",
+                    f"theme_trend_{trend_period}_{now}.csv" if st.session_state.get("app_language","ja")=="en" else f"テーマ騰落推移_{trend_period}_{now}.csv",
                     "text/csv",
                 )
 
@@ -2363,6 +2370,7 @@ elif pidx == PAGE_HEATMAP:
             heatmap_data = fetch_heatmap_data(theme_keys)
         short_labels = ["1W","1M","3M","6M","1Y"]
         df_heat = pd.DataFrame(heatmap_data).T[short_labels]
+        df_heat.index = [tn(n) for n in df_heat.index]
         all_vals = [v for row in df_heat.values.tolist() for v in row if v is not None]
         abs_max = max(abs(min(all_vals)), abs(max(all_vals))) if all_vals else 10
         n_themes = len(df_heat)
@@ -2410,6 +2418,7 @@ elif pidx == PAGE_HEATMAP:
             monthly_data, month_labels = fetch_monthly_heatmap(theme_keys)
 
         df_monthly = pd.DataFrame(monthly_data).T[month_labels]
+        df_monthly.index = [tn(n) for n in df_monthly.index]
         mn_vals = [v for row in df_monthly.values.tolist() for v in row if v is not None]
         mn_abs_max = max(abs(min(mn_vals)), abs(max(mn_vals))) if mn_vals else 10
         n_t = len(df_monthly)
@@ -2424,7 +2433,8 @@ elif pidx == PAGE_HEATMAP:
             for i in range(n_t)
         ]
         # 月ラベルを短縮（MM月のみ表示）
-        short_months = [m[5:] + "月" for m in month_labels]  # "01月"〜"12月"
+        _lang_sm = st.session_state.get("app_language","ja")
+        short_months = [m[5:] + ("" if _lang_sm=="en" else "月") for m in month_labels]
 
         fig_m = go.Figure(go.Heatmap(
             z=zm,
@@ -2529,8 +2539,12 @@ elif pidx == PAGE_HEATMAP:
 elif pidx == PAGE_COMPARE:
     st.subheader(t("compare_chart_title"))
     period = period_buttons(key_prefix="comp")
-    selected_themes_cmp = st.multiselect(t("compare_select"), list(themes.keys()),
-                                          default=list(themes.keys())[:2])
+    _en2jp_cmp = {tn(k): k for k in themes.keys()}
+    _cmp_opts = [tn(k) for k in themes.keys()]
+    _cmp_def = _cmp_opts[:2]
+    selected_themes_cmp_disp = st.multiselect(t("compare_select"), _cmp_opts,
+                                          default=_cmp_def)
+    selected_themes_cmp = [_en2jp_cmp.get(n, n) for n in selected_themes_cmp_disp]
     if len(selected_themes_cmp) < 2:
         st.warning(t("compare_warn"))
     else:
@@ -2553,7 +2567,7 @@ elif pidx == PAGE_COMPARE:
                     dates = sorted(all_changes.keys())
                     avgs = [round(sum(all_changes[d])/len(all_changes[d]),2) for d in dates]
                     fig_comp.add_trace(go.Scatter(x=dates, y=avgs, mode="lines",
-                                                   name=theme_name, line=dict(width=2)))
+                                                   name=tn(theme_name), line=dict(width=2)))
         fig_comp.add_hline(y=0, line_dash="dash", line_color="gray")
         fig_comp.update_layout(
             xaxis=dict(title=t("xaxis_date"), dtick="M1", tickformat="%y/%m"),
@@ -2573,8 +2587,9 @@ elif pidx == PAGE_MACRO:
     period = period_buttons(key_prefix="macro")
     selected_stock_name = st.selectbox(t("compare_stock_select"), list(all_stocks.keys()))
     selected_ticker = all_stocks[selected_stock_name]
-    macro_items = {"日経平均":"^N225","S&P500":"^GSPC","ドル円":"JPY=X","TOPIX(ETF)":"1306.T"}
-    colors_macro = {"日経平均":"#ffd700","S&P500":"#4b8bff","ドル円":"#ff9900","TOPIX(ETF)":"#cc44ff"}
+    _is_en_macro = st.session_state.get("app_language","ja") == "en"
+    macro_items = {"Nikkei 225":"^N225","S&P500":"^GSPC","USD/JPY":"JPY=X","TOPIX(ETF)":"1306.T"} if _is_en_macro else {"日経平均":"^N225","S&P500":"^GSPC","ドル円":"JPY=X","TOPIX(ETF)":"1306.T"}
+    colors_macro = {"Nikkei 225":"#ffd700","S&P500":"#4b8bff","USD/JPY":"#ff9900","TOPIX(ETF)":"#cc44ff"} if _is_en_macro else {"日経平均":"#ffd700","S&P500":"#4b8bff","ドル円":"#ff9900","TOPIX(ETF)":"#cc44ff"}
     with st.spinner(t("loading")):
         fig_macro = go.Figure()
         try:
@@ -2649,7 +2664,7 @@ elif pidx == PAGE_MARKET_RANK:
                 col_t, col_b = st.columns(2)
                 with col_t:
                     st.markdown(t("top5_stocks"))
-                    t_labels = [f"{i+1}位 {r[t('stock_col')]}" for i, r in enumerate(top5)]
+                    t_labels = [f"{t('rank_suffix').format(i+1)} {r[t('stock_col')]}" for i, r in enumerate(top5)]
                     t_values = [r["騰落率"] for r in top5]
                     t_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in t_values]
                     st.plotly_chart(make_bar_chart(t_labels, t_values, t_colors),
@@ -2657,7 +2672,7 @@ elif pidx == PAGE_MARKET_RANK:
                 with col_b:
                     if bot5:
                         st.markdown(t("bot5_stocks"))
-                        b_labels = [f"{n_seg-4+i}位 {r[t('stock_col')]}" for i, r in enumerate(bot5)]
+                        b_labels = [f"{t('rank_suffix').format(n_seg-4+i)} {r[t('stock_col')]}" for i, r in enumerate(bot5)]
                         b_values = [r["騰落率"] for r in bot5]
                         b_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in b_values]
                         st.plotly_chart(make_bar_chart(b_labels, b_values, b_colors),
@@ -2668,7 +2683,7 @@ elif pidx == PAGE_MARKET_RANK:
                     t("stock_col"): r[t("stock_col")], t("price_col"): r[t("price_col")],
                     t("day_change_col"): r[t("day_change_col")],
                     t("change_col"): f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
-                    t("trade_val_col"): r["売買代金"],
+                    t("trade_val_col"): r[t("trade_val_col")],
                 } for r in top5]).set_index(t("stock_col"))
                 st.dataframe(df_top5, use_container_width=True)
 
@@ -2679,7 +2694,7 @@ elif pidx == PAGE_MARKET_RANK:
                         t("stock_col"): r[t("stock_col")], t("price_col"): r[t("price_col")],
                         t("day_change_col"): r[t("day_change_col")],
                         t("change_col"): f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
-                        t("trade_val_col"): r["売買代金"],
+                        t("trade_val_col"): r[t("trade_val_col")],
                     } for i, r in enumerate(seg_results)]).set_index(t("rank_col"))
                     st.dataframe(df_all_seg, use_container_width=True)
 
@@ -2740,9 +2755,9 @@ elif pidx == PAGE_FAVORITES:
         for r in fav_results:
             c = "🔴" if r["change"]>0 else "🟢"
             col1, col2, col3 = st.columns([3,1,1])
-            with col1: st.write(f"{c} **{r['銘柄']}**  {r['change']}%")
+            with col1: st.write(f"{c} **{r[t('stock_col')]}**  {r['change']}%")
             with col2:
-                if st.button(t("fav_remove_btn"), key=f"fd_{r['銘柄']}"):
+                if st.button(t("fav_remove_btn"), key=f"fd_{list(r.values())[0]}"):
                     del st.session_state["favorites"][r["銘柄"]]; st.rerun()
 
 # =====================
@@ -2757,9 +2772,11 @@ elif pidx == PAGE_THEME_DETAIL:
     with st.spinner(t("loading")):
         td_results, td_details, _cache_time_td = fetch_all_theme_data(period, theme_keys)
 
-    # テーマ選択
-    theme_name_list = [r["テーマ"] for r in td_results]
-    selected_theme = st.selectbox(t("theme_detail_select"), theme_name_list, key="detail_theme_sel")
+    # テーマ選択 (英語モード: 英語表示名→内部日本語キーの逆引き辞書を使う)
+    _en2jp_td = {tn(r["テーマ"]): r["テーマ"] for r in td_results}
+    theme_display_list = [tn(r["テーマ"]) for r in td_results]
+    selected_theme_disp = st.selectbox(t("theme_detail_select"), theme_display_list, key="detail_theme_sel")
+    selected_theme = _en2jp_td.get(selected_theme_disp, selected_theme_disp)
 
     result = next((r for r in td_results if r["テーマ"] == selected_theme), None)
     stocks_d = td_details.get(selected_theme, {})
@@ -2775,7 +2792,7 @@ elif pidx == PAGE_THEME_DETAIL:
         # 個別銘柄バーチャート
         theme_s_map = themes.get(selected_theme, {})
         s_labels = [
-            f"{s}({theme_s_map.get(s,'').replace('.T','')})" if theme_s_map.get(s) else s
+            f"{sn(s)}({theme_s_map.get(s,'').replace('.T','')})" if theme_s_map.get(s) else sn(s)
             for s in stocks_d.keys()
         ]
         s_values = [stocks_d[s]["change"] for s in stocks_d.keys()]
@@ -2934,7 +2951,7 @@ elif pidx == PAGE_CUSTOM:
     st.subheader(t("custom_edit_title"))
     st.caption(t("custom_edit_cap"))
 
-    tab1, tab2 = st.tabs(["➕ 新規作成", "✏️ 編集・削除"])
+    tab1, tab2 = st.tabs([t("custom_tab_new"), t("custom_tab_edit")])
 
     with tab1:
 
@@ -2947,7 +2964,7 @@ elif pidx == PAGE_CUSTOM:
             st.session_state["ct_search_query"] = ""
 
         st.markdown(t("custom_theme_name_hdr"))
-        new_theme_name = st.text_input("テーマ名", placeholder="例：マイ注目銘柄、AIテーマ...",
+        new_theme_name = st.text_input(t("custom_theme_name_label"), placeholder=t("custom_theme_name_placeholder"),
                                         label_visibility="collapsed")
 
         st.markdown("---")
@@ -2958,8 +2975,8 @@ elif pidx == PAGE_CUSTOM:
         search_col, btn_col = st.columns([4, 1])
         with search_col:
             ct_query = st.text_input(
-                "銘柄名 or 証券コード",
-                placeholder="銘柄名 or 証券コード（例：7203 / トヨタ）",
+                t("custom_stock_input_label"),
+                placeholder=t("custom_stock_input_placeholder"),
                 label_visibility="collapsed",
                 key="ct_search_input",
             )
@@ -3088,7 +3105,7 @@ elif pidx == PAGE_CUSTOM:
                         "name": res["name"],
                         "ticker": res["ticker"],
                     })
-                    st.success(f"「{res['name']}」を追加しました！")
+                    st.success(t("custom_stock_added").format(res['name']))
                     st.session_state["ct_search_result"] = None
                     st.rerun()
 
@@ -3104,7 +3121,7 @@ elif pidx == PAGE_CUSTOM:
                     st.caption(stock["ticker"])
                 with r_col3:
                     if st.button("🗑️", key=f"ns_del_{i}",
-                                  help=f"{stock['name']}を削除"):
+                                  help=t("custom_stock_delete_help").format(stock['name'])):
                         st.session_state["new_stocks"].pop(i)
                         st.rerun()
 
@@ -3124,7 +3141,7 @@ elif pidx == PAGE_CUSTOM:
                 st.session_state["custom_themes"][new_theme_name] = valid_stocks
                 st.session_state["new_stocks"] = []
                 st.session_state["ct_search_result"] = None
-                st.success(f"「{new_theme_name}」を保存しました！テーマ一覧に反映されます。")
+                st.success(t("custom_theme_saved").format(new_theme_name))
                 st.rerun()
 
     with tab2:
@@ -3147,7 +3164,7 @@ elif pidx == PAGE_CUSTOM:
                     with col_edit2:
                         if st.button(t("delete_btn"), key=f"del_{ct_name}"):
                             del st.session_state["custom_themes"][ct_name]
-                            st.success(f"「{ct_name}」を削除しました")
+                            st.success(t("custom_theme_deleted").format(ct_name))
                             st.rerun()
 
 
