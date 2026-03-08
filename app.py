@@ -151,36 +151,16 @@ h1, h2, h3, h4, h5, h6 {{
     color: {_c['text_secondary']} !important;
 }}
 
-/* ── テーブル・データフレーム ── */
-[data-testid="stDataFrame"] * {{
-    color: {_c['text_primary']} !important;
-    background-color: {_c['bg_card']} !important;
-}}
-
-/* ── セレクトボックス・入力フォーム ── */
-[data-testid="stSelectbox"] *, [data-testid="stMultiSelect"] *,
-[data-testid="stTextInput"] *, [data-testid="stRadio"] *,
-[data-baseweb="select"] *, [data-baseweb="input"] * {{
-    color: {_c['text_primary']} !important;
-    background-color: {_c['bg_card']} !important;
-}}
-[data-baseweb="select"] [role="listbox"] * {{
-    background-color: {_c['bg_sidebar']} !important;
+/* ── セレクトボックス・ラジオ（テキスト色のみ、背景はStreamlitデフォルト） ── */
+[data-testid="stSelectbox"] label, [data-testid="stMultiSelect"] label,
+[data-testid="stTextInput"] label, [data-testid="stRadio"] label {{
     color: {_c['text_primary']} !important;
 }}
 
-/* ── expander ── */
+/* ── expander（枠と背景のみ、内部テキストはStreamlitデフォルト） ── */
 [data-testid="stExpander"] {{
     background-color: {_c['bg_card']} !important;
     border: 1px solid {_c['border']} !important;
-}}
-[data-testid="stExpander"] * {{
-    color: {_c['text_primary']} !important;
-}}
-
-/* ── info / warning / error ── */
-[data-testid="stAlert"] * {{
-    color: {_c['text_primary']} !important;
 }}
 
 /* ── ボタン ── */
