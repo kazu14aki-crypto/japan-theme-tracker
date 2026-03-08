@@ -118,38 +118,94 @@ section[data-testid="stSidebar"] * {{
     color: {_c['text_primary']} !important;
 }}
 
-/* ── メインエリアのテキスト全般（Plotly SVG要素は除外） ── */
+/* ── メインエリアのテキスト全般（Plotly SVG要素・DataFrame iframeは除外） ── */
 .stMarkdown, .stMarkdown p, .stMarkdown li, .stMarkdown span {{
     color: {_c['text_primary']} !important;
-}}
-p:not(.js-plotly-plot p):not([class*="plotly"] p) {{
-    color: {_c['text_primary']};
-}}
-label:not(.js-plotly-plot label) {{
-    color: {_c['text_primary']};
 }}
 h1, h2, h3, h4, h5, h6 {{
     color: {_c['text_primary']} !important;
 }}
-/* Streamlit固有のテキスト要素 */
-[data-testid="stMarkdownContainer"] * {{
-    color: {_c['text_primary']};
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stMarkdownContainer"] span,
+[data-testid="stMarkdownContainer"] a {{
+    color: {_c['text_primary']} !important;
 }}
 [data-testid="stText"] {{
-    color: {_c['text_primary']};
+    color: {_c['text_primary']} !important;
 }}
 [data-testid="stCaptionContainer"] * {{
     color: {_c['text_secondary']} !important;
 }}
 
 /* ── メトリクス ── */
-[data-testid="metric-container"] * {{
+[data-testid="metric-container"] [data-testid="stMetricValue"],
+[data-testid="metric-container"] [data-testid="stMetricLabel"],
+[data-testid="metric-container"] [data-testid="stMetricDelta"] {{
     color: {_c['text_primary']} !important;
 }}
 /* ── キャプション ── */
-.stCaption, .stCaption * {{
+.stCaption {{
     color: {_c['text_secondary']} !important;
 }}
+
+/* ── ライトテーマ専用: StreamlitのCSS変数を上書きして全テキストを黒に ── */
+{"" if _ct != "light" else f"""
+:root {{
+    --text-color: {_c['text_primary']} !important;
+    --background-color: {_c['bg_main']} !important;
+    --secondary-background-color: {_c['bg_card']} !important;
+    --font: sans-serif;
+}}
+.stApp, .main, [data-testid="stAppViewContainer"] {{
+    color: {_c['text_primary']} !important;
+    background-color: {_c['bg_main']} !important;
+}}
+/* widget ラベル・テキスト */
+[data-testid="stAppViewContainer"] [class*="st-"] {{
+    color: {_c['text_primary']};
+}}
+/* selectbox / multiselect のドロップダウン */
+[data-baseweb="select"] * {{
+    color: {_c['text_primary']} !important;
+    background-color: {_c['bg_card']} !important;
+}}
+[data-baseweb="menu"] * {{
+    color: {_c['text_primary']} !important;
+    background-color: {_c['bg_card']} !important;
+}}
+/* radio, checkbox */
+[data-testid="stRadio"] label span,
+[data-testid="stCheckbox"] label span {{
+    color: {_c['text_primary']} !important;
+}}
+/* widget ラベル全般 */
+[data-testid*="st"] [data-testid="stWidgetLabel"] p {{
+    color: {_c['text_primary']} !important;
+}}
+/* subheader / header */
+[data-testid="stAppViewContainer"] h1,
+[data-testid="stAppViewContainer"] h2,
+[data-testid="stAppViewContainer"] h3 {{
+    color: {_c['text_primary']} !important;
+}}
+/* caption / info / success / warning */
+[data-testid="stCaptionContainer"] p,
+[data-testid="stNotificationContentInfo"] p,
+[data-testid="stNotificationContentSuccess"] p,
+[data-testid="stNotificationContentWarning"] p {{
+    color: {_c['text_primary']} !important;
+}}
+/* expander ヘッダー */
+[data-testid="stExpander"] summary p,
+[data-testid="stExpander"] summary span {{
+    color: {_c['text_primary']} !important;
+}}
+/* multiselect タグ */
+[data-baseweb="tag"] span {{
+    color: {_c['text_primary']} !important;
+}}
+"""}
 
 /* ── セレクトボックス・ラジオ（テキスト色のみ、背景はStreamlitデフォルト） ── */
 [data-testid="stSelectbox"] label, [data-testid="stMultiSelect"] label,
