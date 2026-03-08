@@ -1028,7 +1028,7 @@ def get_pages():
         "🔍 テーマ別詳細",
         "⭐ お気に入り",
         "🎨 カスタムテーマ",
-        "📰 ニュース",
+        "📣 お知らせ",
         "📖 使い方",
         "⚖️ 免責事項",
         "⚙️ 設定",
@@ -1230,7 +1230,7 @@ if pidx == PAGE_THEME_LIST:
         row = {
             "順位": "{}位".format(rank),
             "テーマ": r["テーマ"],
-            "騰落率": f"🔴 +{_c}%" if _c>0 else f"🟢 {_c}%",
+            "騰落率": f"🔴 +{c_ret}%" if c_ret>0 else f"🟢 {c_ret}%",
             "出来高増減": f"📈 +{v}%" if v>0 else f"📉 {v}%",
         }
         table_data.append(row)
@@ -1882,7 +1882,6 @@ elif pidx == PAGE_MARKET_RANK:
                         price = int(df["Close"].iloc[-1])
                         rv = target_df["Volume"].mean()
                         trade_val = int(rv * price)
-                        _seg_usd = calc_usd_return(change, *get_usdjpy_rate_at(period))
                         seg_results.append({
                             "銘柄": stock_name, "株価": f"¥{price:,}",
                             "前日比": f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
@@ -1903,7 +1902,7 @@ elif pidx == PAGE_MARKET_RANK:
                 col_t, col_b = st.columns(2)
                 with col_t:
                     st.markdown("**🔴 上位5銘柄**")
-                    t_labels = [f"{"{}位".format(i+1)} {r["銘柄"]}" for i, r in enumerate(top5)]
+                    t_labels = [f"{i+1}位 {r['銘柄']}" for i, r in enumerate(top5)]
                     t_values = [r["騰落率"] for r in top5]
                     t_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in t_values]
                     st.plotly_chart(make_bar_chart(t_labels, t_values, t_colors),
@@ -1911,7 +1910,7 @@ elif pidx == PAGE_MARKET_RANK:
                 with col_b:
                     if bot5:
                         st.markdown("**🟢 下位5銘柄**")
-                        b_labels = [f"{"{}位".format(n_seg-4+i)} {r["銘柄"]}" for i, r in enumerate(bot5)]
+                        b_labels = [f"{n_seg-4+i+1}位 {r['銘柄']}" for i, r in enumerate(bot5)]
                         b_values = [r["騰落率"] for r in bot5]
                         b_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in b_values]
                         st.plotly_chart(make_bar_chart(b_labels, b_values, b_colors),
