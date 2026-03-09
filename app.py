@@ -143,33 +143,26 @@ else:  # auto
 
 _is_mobile = st.session_state["is_mobile"]
 
-# ── 手動切り替えボタン（右上：モバイル／PCトグル） ──
-_spacer, _toggle_col = st.columns([3, 2])
+# ── 手動切り替えボタン（右上：クリックで切り替わるトグル） ──
+_spacer, _toggle_col = st.columns([4, 1])
 with _toggle_col:
-    # 現在の状態を表示しながらトグルできるボタンUI
-    _mob_label = "モバイル"
-    _pc_label  = "PC"
-    # どちらが選択中かをCSSで強調するHTMLボタンを使用
-    _active_mob = "background:#e63030;color:white;font-weight:700;" if _is_mobile  else "background:#1a1e2e;color:#8090a8;"
-    _active_pc  = "background:#e63030;color:white;font-weight:700;" if not _is_mobile else "background:#1a1e2e;color:#8090a8;"
-    st.markdown(f"""
-<div style="display:flex;gap:0;border:1px solid #3a3e50;border-radius:8px;overflow:hidden;width:100%;margin-bottom:4px;">
-  <div style="flex:1;text-align:center;padding:7px 0;font-size:13px;{_active_mob}">📱 {_mob_label}</div>
-  <div style="flex:1;text-align:center;padding:7px 0;font-size:13px;{_active_pc}">🖥️ {_pc_label}</div>
-</div>
-""", unsafe_allow_html=True)
-    # 実際の切り替えはStreamlitボタンで行う（HTML表示はダミー）
-    _tcol1, _tcol2 = st.columns(2)
-    with _tcol1:
-        if st.button("📱 モバイル", key="view_mob", use_container_width=True,
-                     disabled=_is_mobile):
-            st.session_state["view_mode"] = "mobile"
-            st.rerun()
-    with _tcol2:
-        if st.button("🖥️ PC", key="view_pc", use_container_width=True,
-                     disabled=not _is_mobile):
-            st.session_state["view_mode"] = "desktop"
-            st.rerun()
+    _active_mob = "background:#e63030;color:white;font-weight:700;" if _is_mobile else "background:#1a1e2e;color:#6a7080;"
+    _active_pc  = "background:#e63030;color:white;font-weight:700;" if not _is_mobile else "background:#1a1e2e;color:#6a7080;"
+    # トグルボタン本体（クリックでモード切り替え）
+    if st.button(
+        "📱 モバイル" if _is_mobile else "🖥️ PC",
+        key="view_toggle_main",
+        use_container_width=True,
+        help="クリックして表示を切り替え"
+    ):
+        st.session_state["view_mode"] = "desktop" if _is_mobile else "mobile"
+        st.rerun()
+    # 現在の状態ラベル
+    st.markdown(
+        f"<div style='text-align:center;font-size:0.72em;color:#6a7080;margin-top:2px;'>"
+        f"{'← PC表示へ' if _is_mobile else '← モバイルへ'}</div>",
+        unsafe_allow_html=True
+    )
 
 # ── スマホ時に追加で適用するCSS ──
 if _is_mobile:
@@ -221,9 +214,18 @@ st.markdown(f"""
 /* ── サイドバー ── */
 section[data-testid="stSidebar"] {{
     background-color: {_c['bg_sidebar']} !important;
+    min-width: 220px !important;
+    max-width: 280px !important;
 }}
 section[data-testid="stSidebar"] * {{
     color: {_c['text_primary']} !important;
+}}
+/* スマホでサイドバーをさらに広げて折り返しを完全防止 */
+@media (max-width: 640px) {{
+    section[data-testid="stSidebar"] {{
+        min-width: 260px !important;
+        max-width: 300px !important;
+    }}
 }}
 
 /* ── メインエリアのテキスト全般（Plotly SVG要素・DataFrame iframeは除外） ── */
@@ -1333,10 +1335,19 @@ pidx = st.session_state.get("current_page_idx", 0)
 if pidx == PAGE_THEME_LIST:
     now = _get_now_str()
 
-    # 期間選択 ＋ テーマ数選択（スマホでも1行横並び）
-    # st.columnsはスマホで縦積みになるためHTMLで横並びレイアウトを作り
-    # Streamlitのselectboxを2列に配置
-    _col_period, _col_count = st.columns(2)
+    # 期間選択 ＋ テーマ数選択（幅を抑えてコンパクト配置）
+    # [期間▼] [テーマ数▼] + 右側に余白を持たせる
+    _col_period, _col_count, _col_spacer = st.columns([2, 2, 3])
+
+    # 共通セレクトボックスCSSで幅を絞る
+    st.markdown("""
+<style>
+div[data-testid="stSelectbox"] > div > div {
+    min-height: 2.1em !important;
+    font-size: 0.88em !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
     # 期間選択
     period_opts   = get_period_options()
@@ -1345,7 +1356,7 @@ if pidx == PAGE_THEME_LIST:
     val_to_label  = {v: k for k, v in period_opts.items()}
     current_label = val_to_label.get(current_val, period_labels[2])
     with _col_period:
-        st.markdown("<div style='font-size:0.78em;color:#8090a8;margin-bottom:2px;'>📅 期間</div>",
+        st.markdown("<div style='font-size:0.75em;color:#8090a8;margin-bottom:1px;'>📅 期間</div>",
                     unsafe_allow_html=True)
         selected = st.selectbox(
             "期間",
@@ -1359,7 +1370,7 @@ if pidx == PAGE_THEME_LIST:
 
     # テーマ数選択
     with _col_count:
-        st.markdown("<div style='font-size:0.78em;color:#8090a8;margin-bottom:2px;'>📊 表示テーマ数</div>",
+        st.markdown("<div style='font-size:0.75em;color:#8090a8;margin-bottom:1px;'>📊 テーマ数</div>",
                     unsafe_allow_html=True)
         display_count = st.selectbox(
             "表示テーマ数", [5, 10, 15, 25, 99], index=0,
