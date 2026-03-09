@@ -143,26 +143,56 @@ else:  # auto
 
 _is_mobile = st.session_state["is_mobile"]
 
-# ── 手動切り替えボタン（右上：クリックで切り替わるトグル） ──
-_spacer, _toggle_col = st.columns([4, 1])
+# ── 手動切り替えトグル（右上：モバイル ／ PC） ──
+st.markdown("""
+<style>
+/* トグルをコンパクトに横並び */
+div[data-testid="stHorizontalBlock"]:has(div.toggle-row) { gap: 0 !important; }
+.toggle-wrap div[data-testid="stRadio"] > label { display: none; }
+.toggle-wrap div[data-testid="stRadio"] [data-baseweb="radio-group"] {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 0 !important;
+    border: 1px solid #3a3e50;
+    border-radius: 8px;
+    overflow: hidden;
+    width: fit-content;
+}
+.toggle-wrap div[data-testid="stRadio"] [data-baseweb="radio-group"] label {
+    margin: 0 !important;
+    padding: 5px 14px !important;
+    font-size: 12px !important;
+    cursor: pointer;
+    background: #1a1e2e;
+    color: #6a7080;
+    border-right: 1px solid #3a3e50;
+    white-space: nowrap;
+}
+.toggle-wrap div[data-testid="stRadio"] [data-baseweb="radio-group"] label:last-child {
+    border-right: none;
+}
+.toggle-wrap div[data-testid="stRadio"] [aria-checked="true"] + div,
+.toggle-wrap div[data-testid="stRadio"] input:checked + div {
+    background: #e63030 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+_spacer, _toggle_col = st.columns([5, 2])
 with _toggle_col:
-    _active_mob = "background:#e63030;color:white;font-weight:700;" if _is_mobile else "background:#1a1e2e;color:#6a7080;"
-    _active_pc  = "background:#e63030;color:white;font-weight:700;" if not _is_mobile else "background:#1a1e2e;color:#6a7080;"
-    # トグルボタン本体（クリックでモード切り替え）
-    if st.button(
-        "📱 モバイル" if _is_mobile else "🖥️ PC",
-        key="view_toggle_main",
-        use_container_width=True,
-        help="クリックして表示を切り替え"
-    ):
-        st.session_state["view_mode"] = "desktop" if _is_mobile else "mobile"
-        st.rerun()
-    # 現在の状態ラベル
-    st.markdown(
-        f"<div style='text-align:center;font-size:0.72em;color:#6a7080;margin-top:2px;'>"
-        f"{'← PC表示へ' if _is_mobile else '← モバイルへ'}</div>",
-        unsafe_allow_html=True
+    st.markdown('<div class="toggle-wrap">', unsafe_allow_html=True)
+    _toggle_val = st.radio(
+        "表示モード",
+        ["📱 モバイル", "🖥️ PC"],
+        index=0 if _is_mobile else 1,
+        key="view_toggle_radio",
+        horizontal=True,
+        label_visibility="collapsed",
     )
+    st.markdown('</div>', unsafe_allow_html=True)
+    if (_toggle_val == "📱 モバイル") != _is_mobile:
+        st.session_state["view_mode"] = "mobile" if _toggle_val == "📱 モバイル" else "desktop"
+        st.rerun()
 
 # ── スマホ時に追加で適用するCSS ──
 if _is_mobile:
@@ -214,18 +244,9 @@ st.markdown(f"""
 /* ── サイドバー ── */
 section[data-testid="stSidebar"] {{
     background-color: {_c['bg_sidebar']} !important;
-    min-width: 220px !important;
-    max-width: 280px !important;
 }}
 section[data-testid="stSidebar"] * {{
     color: {_c['text_primary']} !important;
-}}
-/* スマホでサイドバーをさらに広げて折り返しを完全防止 */
-@media (max-width: 640px) {{
-    section[data-testid="stSidebar"] {{
-        min-width: 260px !important;
-        max-width: 300px !important;
-    }}
 }}
 
 /* ── メインエリアのテキスト全般（Plotly SVG要素・DataFrame iframeは除外） ── */
@@ -1235,8 +1256,16 @@ div[data-testid="stSidebar"] .stButton > button {{
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    padding-left: 10px !important;
-    padding-right: 10px !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}}
+@media (max-width: 640px) {{
+    div[data-testid="stSidebar"] .stButton > button {{
+        font-size: 11.5px !important;
+        padding-left: 6px !important;
+        padding-right: 6px !important;
+        letter-spacing: -0.01em;
+    }}
 }}
 div[data-testid="stSidebar"] .stButton > button:hover {{
     background: #252a3e;
@@ -1337,17 +1366,26 @@ if pidx == PAGE_THEME_LIST:
 
     # 期間選択 ＋ テーマ数選択（幅を抑えてコンパクト配置）
     # [期間▼] [テーマ数▼] + 右側に余白を持たせる
-    _col_period, _col_count, _col_spacer = st.columns([2, 2, 3])
-
-    # 共通セレクトボックスCSSで幅を絞る
+    # 期間選択 ＋ テーマ数選択
+    # max-widthで幅を絞り、スマホでも1行に確実に収める
     st.markdown("""
 <style>
-div[data-testid="stSelectbox"] > div > div {
-    min-height: 2.1em !important;
-    font-size: 0.88em !important;
+/* 期間・テーマ数セレクトボックスを小さく固定 */
+div[data-testid="stSelectbox"].compact-sel {
+    max-width: 130px !important;
+}
+div[data-testid="stSelectbox"].compact-sel > div {
+    min-height: 2em !important;
+}
+div[data-testid="stSelectbox"].compact-sel label {
+    font-size: 0.75em !important;
+    color: #8090a8 !important;
+    margin-bottom: 1px !important;
 }
 </style>
 """, unsafe_allow_html=True)
+
+    _col_period, _col_count, _col_spacer = st.columns([1, 1, 2])
 
     # 期間選択
     period_opts   = get_period_options()
@@ -1356,25 +1394,21 @@ div[data-testid="stSelectbox"] > div > div {
     val_to_label  = {v: k for k, v in period_opts.items()}
     current_label = val_to_label.get(current_val, period_labels[2])
     with _col_period:
-        st.markdown("<div style='font-size:0.75em;color:#8090a8;margin-bottom:1px;'>📅 期間</div>",
-                    unsafe_allow_html=True)
         selected = st.selectbox(
-            "期間",
+            "📅 期間",
             period_labels,
             index=period_labels.index(current_label) if current_label in period_labels else 2,
             key="period_sel_home",
-            label_visibility="collapsed",
         )
     st.session_state["selected_period_val"] = period_opts[selected]
     period = period_opts[selected]
 
     # テーマ数選択
     with _col_count:
-        st.markdown("<div style='font-size:0.75em;color:#8090a8;margin-bottom:1px;'>📊 テーマ数</div>",
-                    unsafe_allow_html=True)
         display_count = st.selectbox(
-            "表示テーマ数", [5, 10, 15, 25, 99], index=0,
-            label_visibility="collapsed",
+            "📊 テーマ数",
+            [5, 10, 15, 25, 99],
+            index=0,
         )
 
     theme_keys = tuple(themes.keys())
