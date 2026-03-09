@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as _stc
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -103,6 +104,100 @@ COLOR_THEMES = {
         "label_en":       "Navy",
     },
 }
+
+# ══════════════════════════════════════════════
+# 画面幅の自動判定（JS）＋ 手動切り替えボタン
+# ══════════════════════════════════════════════
+
+# JSで画面幅を取得してクエリパラメータ経由でセッションに渡す
+_stc.html("""
+<script>
+(function() {
+    const w = window.innerWidth;
+    const isMobile = w <= 640;
+    // Streamlitのpostmessageで幅をセッションに渡すのは不可なため
+    // URLパラメータに埋め込む方式を使用
+    const url = new URL(window.parent.location.href);
+    const current = url.searchParams.get("_mobile");
+    const newVal  = isMobile ? "1" : "0";
+    if (current !== newVal) {
+        url.searchParams.set("_mobile", newVal);
+        window.parent.history.replaceState({}, "", url.toString());
+    }
+})();
+</script>
+""", height=0)
+
+# URLパラメータから画面幅判定結果を取得
+_qp = st.query_params
+_auto_mobile = _qp.get("_mobile", "0") == "1"
+
+# view_modeに応じてis_mobileを決定
+_vm = st.session_state.get("view_mode", "auto")
+if _vm == "mobile":
+    st.session_state["is_mobile"] = True
+elif _vm == "desktop":
+    st.session_state["is_mobile"] = False
+else:  # auto
+    st.session_state["is_mobile"] = _auto_mobile
+
+_is_mobile = st.session_state["is_mobile"]
+
+# 手動切り替えボタン（右上に小さく配置）
+_btn_col1, _btn_col2, _btn_col3 = st.columns([6, 1, 1])
+with _btn_col2:
+    if st.button("📱" if not _is_mobile else "🖥️",
+                 key="view_toggle",
+                 help="スマホ表示／PC表示を切り替え",
+                 use_container_width=True):
+        if _vm == "auto":
+            # autoの場合は現在の自動判定の逆に切り替え
+            st.session_state["view_mode"] = "desktop" if _auto_mobile else "mobile"
+        elif _vm == "mobile":
+            st.session_state["view_mode"] = "desktop"
+        else:
+            st.session_state["view_mode"] = "mobile"
+        st.rerun()
+with _btn_col3:
+    if _vm != "auto":
+        if st.button("🔄", key="view_auto", help="自動判定に戻す", use_container_width=True):
+            st.session_state["view_mode"] = "auto"
+            st.rerun()
+
+# ── スマホ時に追加で適用するCSS ──
+if _is_mobile:
+    st.markdown("""
+<style>
+/* スマホ強制適用（自動判定またはボタン切り替え時） */
+h1 { font-size: 1.3em !important; line-height: 1.3 !important; }
+h2 { font-size: 1.1em !important; line-height: 1.3 !important; }
+h3 { font-size: 1.0em !important; }
+.stMarkdown p, .stMarkdown li {
+    font-size: 0.88em !important;
+    line-height: 1.6 !important;
+    word-break: break-word !important;
+}
+[data-testid="stCaptionContainer"] * { font-size: 0.78em !important; }
+[data-testid="stMetricValue"] { font-size: 1.1em !important; }
+[data-testid="stMetricLabel"] { font-size: 0.78em !important; }
+div.stButton > button {
+    font-size: 0.85em !important;
+    height: 2.8em !important;
+    padding: 0 8px !important;
+}
+div[data-testid="stSelectbox"] > div { font-size: 0.88em !important; }
+[data-testid="stDataFrame"] { font-size: 0.78em !important; }
+.stTabs [data-baseweb="tab"] {
+    font-size: 0.82em !important;
+    padding: 6px 8px !important;
+}
+[data-testid="stExpander"] summary { font-size: 0.88em !important; }
+.block-container {
+    padding-left: 0.8rem !important;
+    padding-right: 0.8rem !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 _ct = st.session_state.get("color_theme", "dark")
 _c  = COLOR_THEMES.get(_ct, COLOR_THEMES["dark"])
@@ -251,10 +346,64 @@ div[data-testid="column"] div.stButton > button:hover {{
 /* ── Plotlyチャート ── */
 .stPlotlyChart {{ overflow-x: auto; }}
 
-/* ── レスポンシブ ── */
+/* ── レスポンシブ（スマホ文字サイズ最適化） ── */
 @media (max-width: 640px) {{
-    h1 {{ font-size: 1.4em !important; }}
-    h2 {{ font-size: 1.1em !important; }}
+    /* 見出し */
+    h1 {{ font-size: 1.3em !important; line-height: 1.3 !important; }}
+    h2 {{ font-size: 1.1em !important; line-height: 1.3 !important; }}
+    h3 {{ font-size: 1.0em !important; }}
+
+    /* 本文・キャプション */
+    .stMarkdown p, .stMarkdown li {{
+        font-size: 0.88em !important;
+        line-height: 1.6 !important;
+        word-break: break-word !important;
+    }}
+    [data-testid="stCaptionContainer"] * {{
+        font-size: 0.78em !important;
+    }}
+
+    /* メトリクス */
+    [data-testid="stMetricValue"] {{
+        font-size: 1.1em !important;
+    }}
+    [data-testid="stMetricLabel"] {{
+        font-size: 0.78em !important;
+    }}
+
+    /* ボタン */
+    div.stButton > button {{
+        font-size: 0.85em !important;
+        height: 2.8em !important;
+        padding: 0 8px !important;
+    }}
+
+    /* セレクトボックス */
+    div[data-testid="stSelectbox"] > div {{
+        font-size: 0.88em !important;
+    }}
+
+    /* DataFrame */
+    [data-testid="stDataFrame"] {{
+        font-size: 0.78em !important;
+    }}
+
+    /* タブ */
+    .stTabs [data-baseweb="tab"] {{
+        font-size: 0.82em !important;
+        padding: 6px 8px !important;
+    }}
+
+    /* expander */
+    [data-testid="stExpander"] summary {{
+        font-size: 0.88em !important;
+    }}
+
+    /* 余白詰め */
+    .block-container {{
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+    }}
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -268,6 +417,10 @@ if "selected_ticker" not in st.session_state:
     st.session_state["selected_ticker"] = "8035.T"
 if "favorites" not in st.session_state:
     st.session_state["favorites"] = {}
+if "is_mobile" not in st.session_state:
+    st.session_state["is_mobile"] = False   # JS判定で上書きされる
+if "view_mode" not in st.session_state:
+    st.session_state["view_mode"] = "auto"  # "auto" | "mobile" | "desktop"
 if "selected_period" not in st.session_state:
     st.session_state["selected_period"] = "1ヶ月"
 if "custom_themes" not in st.session_state:
