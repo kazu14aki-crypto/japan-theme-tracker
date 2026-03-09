@@ -143,25 +143,32 @@ else:  # auto
 
 _is_mobile = st.session_state["is_mobile"]
 
-# 手動切り替えボタン（右上に小さく配置）
-_btn_col1, _btn_col2, _btn_col3 = st.columns([6, 1, 1])
-with _btn_col2:
-    if st.button("📱" if not _is_mobile else "🖥️",
-                 key="view_toggle",
-                 help="スマホ表示／PC表示を切り替え",
-                 use_container_width=True):
-        if _vm == "auto":
-            # autoの場合は現在の自動判定の逆に切り替え
-            st.session_state["view_mode"] = "desktop" if _auto_mobile else "mobile"
-        elif _vm == "mobile":
-            st.session_state["view_mode"] = "desktop"
-        else:
+# ── 手動切り替えボタン（右上：モバイル／PCトグル） ──
+_spacer, _toggle_col = st.columns([3, 2])
+with _toggle_col:
+    # 現在の状態を表示しながらトグルできるボタンUI
+    _mob_label = "モバイル"
+    _pc_label  = "PC"
+    # どちらが選択中かをCSSで強調するHTMLボタンを使用
+    _active_mob = "background:#e63030;color:white;font-weight:700;" if _is_mobile  else "background:#1a1e2e;color:#8090a8;"
+    _active_pc  = "background:#e63030;color:white;font-weight:700;" if not _is_mobile else "background:#1a1e2e;color:#8090a8;"
+    st.markdown(f"""
+<div style="display:flex;gap:0;border:1px solid #3a3e50;border-radius:8px;overflow:hidden;width:100%;margin-bottom:4px;">
+  <div style="flex:1;text-align:center;padding:7px 0;font-size:13px;{_active_mob}">📱 {_mob_label}</div>
+  <div style="flex:1;text-align:center;padding:7px 0;font-size:13px;{_active_pc}">🖥️ {_pc_label}</div>
+</div>
+""", unsafe_allow_html=True)
+    # 実際の切り替えはStreamlitボタンで行う（HTML表示はダミー）
+    _tcol1, _tcol2 = st.columns(2)
+    with _tcol1:
+        if st.button("📱 モバイル", key="view_mob", use_container_width=True,
+                     disabled=_is_mobile):
             st.session_state["view_mode"] = "mobile"
-        st.rerun()
-with _btn_col3:
-    if _vm != "auto":
-        if st.button("🔄", key="view_auto", help="自動判定に戻す", use_container_width=True):
-            st.session_state["view_mode"] = "auto"
+            st.rerun()
+    with _tcol2:
+        if st.button("🖥️ PC", key="view_pc", use_container_width=True,
+                     disabled=not _is_mobile):
+            st.session_state["view_mode"] = "desktop"
             st.rerun()
 
 # ── スマホ時に追加で適用するCSS ──
@@ -1223,6 +1230,11 @@ div[data-testid="stSidebar"] .stButton > button {{
     border: 1px solid #2a2e40;
     text-align: left;
     font-size: 13px;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
 }}
 div[data-testid="stSidebar"] .stButton > button:hover {{
     background: #252a3e;
@@ -1321,8 +1333,10 @@ pidx = st.session_state.get("current_page_idx", 0)
 if pidx == PAGE_THEME_LIST:
     now = _get_now_str()
 
-    # 期間選択 ＋ テーマ数選択を同列に配置（スマホでも近くで操作できるよう）
-    _col_period, _col_count, _col_cap = st.columns([2, 2, 3])
+    # 期間選択 ＋ テーマ数選択（スマホでも1行横並び）
+    # st.columnsはスマホで縦積みになるためHTMLで横並びレイアウトを作り
+    # Streamlitのselectboxを2列に配置
+    _col_period, _col_count = st.columns(2)
 
     # 期間選択
     period_opts   = get_period_options()
@@ -1331,6 +1345,8 @@ if pidx == PAGE_THEME_LIST:
     val_to_label  = {v: k for k, v in period_opts.items()}
     current_label = val_to_label.get(current_val, period_labels[2])
     with _col_period:
+        st.markdown("<div style='font-size:0.78em;color:#8090a8;margin-bottom:2px;'>📅 期間</div>",
+                    unsafe_allow_html=True)
         selected = st.selectbox(
             "期間",
             period_labels,
@@ -1343,17 +1359,11 @@ if pidx == PAGE_THEME_LIST:
 
     # テーマ数選択
     with _col_count:
+        st.markdown("<div style='font-size:0.78em;color:#8090a8;margin-bottom:2px;'>📊 表示テーマ数</div>",
+                    unsafe_allow_html=True)
         display_count = st.selectbox(
             "表示テーマ数", [5, 10, 15, 25, 99], index=0,
             label_visibility="collapsed",
-        )
-
-    # キャプション
-    with _col_cap:
-        _count_label = "全テーマ" if display_count >= 99 else f"上位/下位 {display_count}テーマ"
-        st.markdown(
-            f"<div style='padding-top:0.5em;font-size:0.85em;color:#8090a8;'>📅 {selected}　·　{_count_label}</div>",
-            unsafe_allow_html=True,
         )
 
     theme_keys = tuple(themes.keys())
