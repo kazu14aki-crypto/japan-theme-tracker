@@ -1057,9 +1057,37 @@ else:
     st.session_state["current_page_idx"] = 0
     st.session_state["current_page"] = PAGES[0]
 
-st.sidebar.markdown(f"### {"メニュー"}")
+# ── サイドバーナビゲーション（アクティブ強調CSS付き） ──
+_pidx_now = st.session_state["current_page_idx"]
+
+# アクティブボタンを赤く強調するCSS
+# nth-of-typeではなくdata属性で特定できないため、JS不使用でCSSのみ対応
+st.sidebar.markdown(f"""
+<style>
+div[data-testid="stSidebar"] .stButton > button {{
+    background: #1a1e2e;
+    color: #b0b8c8;
+    border: 1px solid #2a2e40;
+    text-align: left;
+    font-size: 13px;
+}}
+div[data-testid="stSidebar"] .stButton > button:hover {{
+    background: #252a3e;
+    color: #ffffff;
+    border-color: #445;
+}}
+/* アクティブページ: n番目のボタンを赤にする */
+div[data-testid="stSidebar"] .stButton:nth-of-type({_pidx_now + 2}) > button {{
+    background: #e63030 !important;
+    color: white !important;
+    border-color: #e63030 !important;
+    font-weight: 700;
+}}
+</style>
+""", unsafe_allow_html=True)
+
+st.sidebar.markdown(f"### {'メニュー'}")
 for _i, _p in enumerate(PAGES):
-    _active = st.session_state["current_page_idx"] == _i
     if st.sidebar.button(_p, key=f"nav_{_i}", use_container_width=True):
         st.session_state["current_page_idx"] = _i
         st.session_state["current_page"] = _p
@@ -1140,15 +1168,40 @@ pidx = st.session_state.get("current_page_idx", 0)
 if pidx == PAGE_THEME_LIST:
     now = _get_now_str()
 
-    # 期間ボタン（上部）
-    period = period_buttons(key_prefix="home")
+    # 期間選択 ＋ テーマ数選択を同列に配置（スマホでも近くで操作できるよう）
+    _col_period, _col_count, _col_cap = st.columns([2, 2, 3])
 
-    # 表示テーマ数選択
-    col_disp1, col_disp2 = st.columns([3, 1])
-    with col_disp2:
-        display_count = st.selectbox("表示テーマ数", [5, 10, 15, 25, 99], index=0,
-                                      label_visibility="collapsed")
-        st.caption("上位/下位 全テーマ" if display_count >= 99 else "上位/下位 {}テーマ".format(display_count))
+    # 期間選択
+    period_opts   = get_period_options()
+    period_labels = list(period_opts.keys())
+    current_val   = st.session_state.get("selected_period_val", "1mo")
+    val_to_label  = {v: k for k, v in period_opts.items()}
+    current_label = val_to_label.get(current_val, period_labels[2])
+    with _col_period:
+        selected = st.selectbox(
+            "期間",
+            period_labels,
+            index=period_labels.index(current_label) if current_label in period_labels else 2,
+            key="period_sel_home",
+            label_visibility="collapsed",
+        )
+    st.session_state["selected_period_val"] = period_opts[selected]
+    period = period_opts[selected]
+
+    # テーマ数選択
+    with _col_count:
+        display_count = st.selectbox(
+            "表示テーマ数", [5, 10, 15, 25, 99], index=0,
+            label_visibility="collapsed",
+        )
+
+    # キャプション
+    with _col_cap:
+        _count_label = "全テーマ" if display_count >= 99 else f"上位/下位 {display_count}テーマ"
+        st.markdown(
+            f"<div style='padding-top:0.5em;font-size:0.85em;color:#8090a8;'>📅 {selected}　·　{_count_label}</div>",
+            unsafe_allow_html=True,
+        )
 
     theme_keys = tuple(themes.keys())
     with st.spinner("データを取得中...（初回は時間がかかります）"):
@@ -1948,7 +2001,6 @@ elif pidx == PAGE_MARKET_RANK:
 # =====================
 elif pidx == PAGE_FAVORITES:
     st.subheader("⭐ お気に入り銘柄")
-    st.caption("⚠️ お気に入りはブラウザを閉じるとリセットされます。保存機能はしばらくお待ちください。")
     period = period_buttons(key_prefix="fav")
     if len(st.session_state["favorites"]) == 0:
         st.info("テーマ一覧ページで「☆ 登録」ボタンを押して追加してください。")
@@ -2358,7 +2410,7 @@ elif pidx == PAGE_HOWTO:
         ("🌍 マクロ比較", "日経平均・ドル円・S&P500・TOPIXを同一グラフで比較します。"),
         ("📋 市場別ランキング", "日経225・プライム・スタンダード・グロース市場別の騰落率ランキングです。"),
         ("🔍 テーマ別詳細", "テーマを選ぶと構成銘柄の詳細データ（RSI・シャープレシオ・52週高値安値）を確認できます。"),
-        ("⭐ お気に入り", "気になる銘柄をお気に入り登録して一覧表示できます。※ブラウザを閉じるとリセットされます。保存機能はしばらくお待ちください。"),
+        ("⭐ お気に入り", "気になる銘柄をお気に入り登録して一覧表示できます。"),
         ("🎨 カスタムテーマ", "独自のテーマ・銘柄リストを作成して追跡できます。"),
     ]
     for title, desc in _guide:
