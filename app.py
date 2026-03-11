@@ -20,38 +20,45 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ── StockWaveJP 固定ヘッダー ──
+# ── StockWaveJP ロゴ（Streamlit標準ヘッダーバーにCSSで埋め込む） ──
+# position:fixedはiframe内では機能しないため、
+# Streamlitのheaderバー内にロゴをCSSで表示する方式を採用
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
-/* Streamlitデフォルトのツールバーを非表示にしてヘッダーと重ならないようにする */
+/* Streamlitデフォルトヘッダーバーを活用してロゴを表示 */
 header[data-testid="stHeader"] {
-    display: none !important;
+    background: #0a0c14 !important;
+    border-bottom: 1px solid #1a1e30 !important;
+    height: 48px !important;
 }
-/* 固定ヘッダー本体 */
-#swjp-fixed-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 9999;
-    background: #0a0c14;
-    border-bottom: 1px solid #1a1e30;
-    padding: 6px 16px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    height: 48px;
-    box-sizing: border-box;
+/* ヘッダー内にロゴをCSSで挿入（::beforeはSVG不可のためテキストロゴ） */
+header[data-testid="stHeader"]::before {
+    content: "STOCKWAVE JP";
+    font-family: 'Arial Black', 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    color: #ffffff;
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
 }
-/* ヘッダー分のスペーサー（コンテンツが隠れないよう） */
-#swjp-header-spacer {
-    height: 48px;
-    width: 100%;
+/* ヘッダー内ツールバーを右端に寄せる */
+header[data-testid="stHeader"] > div {
+    justify-content: flex-end !important;
+}
+/* ヘッダー分のトップ余白確保 */
+.block-container {
+    margin-top: 0 !important;
 }
 </style>
+""", unsafe_allow_html=True)
 
-<div id="swjp-fixed-header">
+# ── ロゴ（通常フロー内・スクロール時も先頭に表示される） ──
+st.markdown("""
+<div style="display:flex;align-items:center;gap:10px;padding:4px 0 2px 0;border-bottom:1px solid #1a1e30;margin-bottom:8px;">
   <svg width="32" height="32" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
     <line x1="28" y1="4" x2="28" y2="10" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
     <line x1="42" y1="9"  x2="38" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
@@ -74,7 +81,6 @@ header[data-testid="stHeader"] {
     <div style="font-size:8px;letter-spacing:0.45em;color:#3a4560;font-weight:700;">株　式　波　動</div>
   </div>
 </div>
-<div id="swjp-header-spacer"></div>
 """, unsafe_allow_html=True)
 
 # =====================
