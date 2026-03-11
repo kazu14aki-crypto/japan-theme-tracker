@@ -58,7 +58,7 @@ header[data-testid="stHeader"] > div {
 
 # ── ロゴ（通常フロー内・スクロール時も先頭に表示される） ──
 st.markdown("""
-<div style="display:flex;align-items:center;gap:10px;padding:4px 0 2px 0;border-bottom:1px solid #1a1e30;margin-bottom:8px;">
+<div style="display:flex;align-items:center;gap:10px;padding:2px 0 2px 0;border-bottom:1px solid #1a1e30;margin-bottom:4px;">
   <svg width="32" height="32" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
     <line x1="28" y1="4" x2="28" y2="10" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
     <line x1="42" y1="9"  x2="38" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
@@ -211,21 +211,30 @@ div[data-testid="stHorizontalBlock"]:has(div.toggle-row) { gap: 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-_spacer, _toggle_col = st.columns([5, 2])
-with _toggle_col:
-    st.markdown('<div class="toggle-wrap">', unsafe_allow_html=True)
-    _toggle_val = st.radio(
-        "表示モード",
-        ["📱 モバイル", "🖥️ PC"],
-        index=0 if _is_mobile else 1,
-        key="view_toggle_radio",
-        horizontal=True,
-        label_visibility="collapsed",
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
-    if (_toggle_val == "📱 モバイル") != _is_mobile:
-        st.session_state["view_mode"] = "mobile" if _toggle_val == "📱 モバイル" else "desktop"
-        st.rerun()
+# トグルを右端に寄せるCSS（columnsによる空白を排除）
+st.markdown("""
+<style>
+.toggle-outer {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: -0.5rem;
+}
+</style>
+<div class="toggle-outer"><div class="toggle-wrap" style="display:inline-block;">
+""", unsafe_allow_html=True)
+
+_toggle_val = st.radio(
+    "表示モード",
+    ["📱 モバイル", "🖥️ PC"],
+    index=0 if _is_mobile else 1,
+    key="view_toggle_radio",
+    horizontal=True,
+    label_visibility="collapsed",
+)
+st.markdown('</div></div>', unsafe_allow_html=True)
+if (_toggle_val == "📱 モバイル") != _is_mobile:
+    st.session_state["view_mode"] = "mobile" if _toggle_val == "📱 モバイル" else "desktop"
+    st.rerun()
 
 # ── スマホ時に追加で適用するCSS ──
 if _is_mobile:
@@ -417,7 +426,7 @@ div[data-testid="column"] div.stButton > button:hover {{
 
 /* ── 全体余白の削減（情報密度を上げる） ── */
 .block-container {{
-    padding-top: 0.5rem !important;
+    padding-top: 0.2rem !important;
     padding-bottom: 1rem !important;
 }}
 /* サブヘッダー上下余白を詰める */
@@ -1332,8 +1341,8 @@ div[data-testid="stSidebar"] > div:first-child {
     top: 0;
     z-index: 100;
     background: #0d1020;
-    padding: 10px 12px 8px 12px;
-    margin: -1rem -1rem 0.5rem -1rem;
+    padding: 8px 12px 6px 12px;
+    margin: -1rem -1rem 0.2rem -1rem;
     border-bottom: 1px solid #1a1e30;
 }
 </style>
