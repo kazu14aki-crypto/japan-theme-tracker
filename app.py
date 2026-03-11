@@ -156,6 +156,14 @@ st.markdown("""
 <style>
 /* トグルをコンパクトに横並び */
 div[data-testid="stHorizontalBlock"]:has(div.toggle-row) { gap: 0 !important; }
+/* トグル行の上下余白をゼロに */
+div[data-testid="stHorizontalBlock"]:has(.toggle-wrap) {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+.toggle-wrap { margin: 0 !important; padding: 0 !important; }
 .toggle-wrap div[data-testid="stRadio"] > label { display: none; }
 .toggle-wrap div[data-testid="stRadio"] [data-baseweb="radio-group"] {
     display: flex !important;
@@ -186,37 +194,10 @@ div[data-testid="stHorizontalBlock"]:has(div.toggle-row) { gap: 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── ロゴ ＋ トグルを1行に（左：ロゴ、右：トグル） ──
-_logo_col, _toggle_col = st.columns([3, 1])
-with _logo_col:
-    st.markdown("""
-<div style="display:flex;align-items:center;gap:8px;padding:2px 0;">
-  <svg width="28" height="28" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <line x1="28" y1="4" x2="28" y2="10" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="42" y1="9"  x2="38" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="14" y1="9"  x2="18" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="50" y1="21" x2="45" y2="23" stroke="#e63030" stroke-width="1.8" stroke-linecap="round"/>
-    <line x1="6"  y1="21" x2="11" y2="23" stroke="#e63030" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M11,31 A17,17 0 0,1 45,31" fill="none" stroke="#e63030" stroke-width="2.5"/>
-    <circle cx="28" cy="31" r="5.5" fill="#e63030"/>
-    <line x1="3"  y1="31" x2="11" y2="31" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="45" y1="31" x2="53" y2="31" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M3,43 Q9,36 15,43 Q21,50 27,43 Q33,36 39,43 Q45,50 51,43 Q54,36 53,43"
-      stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-  <div style="line-height:1;">
-    <div style="display:flex;align-items:baseline;gap:0;">
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:20px;letter-spacing:0.06em;color:#e63030;line-height:1;">STOCK</span>
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:20px;letter-spacing:0.06em;color:#ffffff;line-height:1;">WAVE</span>
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:10px;letter-spacing:0.3em;color:#e63030;margin-left:3px;line-height:1;">JP</span>
-    </div>
-    <div style="font-size:7px;letter-spacing:0.4em;color:#3a4560;font-weight:700;">株　式　波　動</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
+# ── トグル（右端） ──
+_spacer_col, _toggle_col = st.columns([4, 1])
 with _toggle_col:
-    st.markdown('<div class="toggle-wrap" style="display:flex;justify-content:flex-end;padding-top:4px;">', unsafe_allow_html=True)
+    st.markdown('<div class="toggle-wrap" style="display:flex;justify-content:flex-end;">', unsafe_allow_html=True)
     _toggle_val = st.radio(
         "表示モード",
         ["📱 モバイル", "🖥️ PC"],
@@ -420,7 +401,7 @@ div[data-testid="column"] div.stButton > button:hover {{
 
 /* ── 全体余白の削減（情報密度を上げる） ── */
 .block-container {{
-    padding-top: 0.1rem !important;
+    padding-top: 0 !important;
     padding-bottom: 1rem !important;
 }}
 /* サブヘッダー上下余白を詰める */
