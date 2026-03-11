@@ -1238,6 +1238,7 @@ def get_pages():
         "🎨 カスタムテーマ",
         "📣 お知らせ",
         "📖 使い方",
+        "⚙️ 設定",
         "⚖️ 免責事項",
     ]
 
@@ -1417,7 +1418,8 @@ PAGE_FAVORITES     = 9
 PAGE_CUSTOM        = 10
 PAGE_NEWS          = 11
 PAGE_HOWTO         = 12
-PAGE_DISCLAIMER    = 13
+PAGE_SETTINGS      = 13
+PAGE_DISCLAIMER    = 14
 
 pidx = st.session_state.get("current_page_idx", 0)
 
@@ -2254,26 +2256,70 @@ elif pidx == PAGE_MARKET_RANK:
                 seg_results.sort(key=lambda x: x["騰落率"], reverse=True)
                 n_seg = len(seg_results)
 
-                # 上位5件グラフ（ラベルにコードを追加）
+                # 上位5・下位5を1グラフに統合（軸対称でラベル被りを防ぐ）
                 top5 = seg_results[:5]
                 bot5 = seg_results[-5:] if n_seg > 5 else []
 
-                col_t, col_b = st.columns(2)
-                with col_t:
-                    st.markdown("**🔴 上位5銘柄**")
-                    t_labels = [f"{i+1}位 {r['コード']} {r['銘柄名']}" for i, r in enumerate(top5)]
-                    t_values = [r["騰落率"] for r in top5]
-                    t_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in t_values]
-                    st.plotly_chart(make_bar_chart(t_labels, t_values, t_colors),
-                                    use_container_width=True, config=PLOT_CONFIG)
-                with col_b:
-                    if bot5:
-                        st.markdown("**🟢 下位5銘柄**")
-                        b_labels = [f"{n_seg-4+i+1}位 {r['コード']} {r['銘柄名']}" for i, r in enumerate(bot5)]
-                        b_values = [r["騰落率"] for r in bot5]
-                        b_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in b_values]
-                        st.plotly_chart(make_bar_chart(b_labels, b_values, b_colors),
-                                        use_container_width=True, config=PLOT_CONFIG)
+                # 上位5（上部）＋ 下位5（下部）を1つのリストに
+                chart_items = top5 + (bot5 if bot5 else [])
+                c_labels = []
+                for i, r in enumerate(top5):
+                    c_labels.append(f"{i+1}位 {r['コード']} {r['銘柄名']}")
+                for i, r in enumerate(bot5):
+                    c_labels.append(f"{n_seg-len(bot5)+i+1}位 {r['コード']} {r['銘柄名']}")
+                c_values = [r["騰落率"] for r in chart_items]
+                c_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in c_values]
+
+                # 軸範囲：プラスとマイナスが混在する場合も両端に余白を確保
+                _cmin = min(c_values)
+                _cmax = max(c_values)
+                _abs_max = max(abs(_cmin), abs(_cmax))
+                _margin = _abs_max * 0.35 if _abs_max > 0 else 1.0
+                _xrange = [_cmin - _margin, _cmax + _margin]
+
+                # テキスト位置：値が小さすぎる場合はoutside固定
+                _range_span = _xrange[1] - _xrange[0]
+                _text_pos = [
+                    "inside" if abs(v) / _range_span > 0.18 else "outside"
+                    for v in c_values
+                ]
+
+                import plotly.graph_objects as _go2
+                _fig_m = _go2.Figure(_go2.Bar(
+                    y=list(range(len(c_values))),
+                    x=c_values,
+                    orientation="h",
+                    marker_color=c_colors,
+                    text=[f" {v:+.2f}%" for v in c_values],
+                    textposition=_text_pos,
+                    textfont=dict(color="white", size=11),
+                    insidetextanchor="middle",
+                    cliponaxis=False,
+                ))
+                _max_label_len = max(len(l) for l in c_labels)
+                _lm = min(max(160, _max_label_len * 10 + 20), 280)
+                _fig_m.update_layout(
+                    xaxis=dict(
+                        title="騰落率（%）", ticksuffix="%",
+                        zeroline=True, zerolinecolor="#555", zerolinewidth=1,
+                        range=_xrange,
+                        tickfont=dict(size=10), title_font=dict(size=11),
+                    ),
+                    yaxis=dict(
+                        tickmode="array",
+                        tickvals=list(range(len(c_labels))),
+                        ticktext=c_labels,
+                        autorange="reversed",
+                        tickfont=dict(size=11),
+                    ),
+                    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="white", size=11),
+                    height=max(220, len(c_values) * 36),
+                    bargap=0.2,
+                    margin=dict(t=8, b=36, l=_lm, r=80),
+                )
+                st.markdown("**🔴 上位5 ／ 🟢 下位5**")
+                st.plotly_chart(_fig_m, use_container_width=True, config=PLOT_CONFIG)
 
                 # 上位5件テーブル（コード・出来高追加・列幅最適化）
                 df_top5 = pd.DataFrame([{
@@ -2759,6 +2805,49 @@ elif pidx == PAGE_HOWTO:
         unsafe_allow_html=True
     )
 
+
+# =====================
+# 設定
+# =====================
+elif pidx == PAGE_SETTINGS:
+    st.subheader("⚙️ 設定")
+    st.caption("アプリの表示設定を変更できます。")
+
+    st.markdown("---")
+    st.markdown("### 🎨 カラーテーマ")
+    st.caption("背景・文字・アクセントカラーを切り替えます。変更は即座に反映されます。")
+
+    # テーマ選択カード
+    _theme_options = {
+        "dark":  {"label": "🌑 ダーク（黒基調）",      "desc": "目に優しい黒背景。デフォルト設定。"},
+        "navy":  {"label": "🌊 ネイビー（深紺）",       "desc": "落ち着いた深紺背景。夜間利用に最適。"},
+        "light": {"label": "☀️ ライト（白基調）",       "desc": "明るい白背景。日中の使用に適しています。"},
+    }
+
+    _current_theme = st.session_state.get("color_theme", "dark")
+
+    for _tid, _tinfo in _theme_options.items():
+        _is_active = (_tid == _current_theme)
+        _border = "#e63030" if _is_active else "#2a2e40"
+        _bg     = "#1a1e30" if _is_active else "#0d1020"
+        _badge  = "　✅ 現在適用中" if _is_active else ""
+        st.markdown(
+            f"<div style='border:2px solid {_border};border-radius:10px;"
+            f"padding:12px 16px;margin-bottom:8px;background:{_bg};'>"
+            f"<span style='font-size:1em;font-weight:700;'>{_tinfo['label']}</span>"
+            f"<span style='font-size:0.8em;color:#e63030;'>{_badge}</span><br>"
+            f"<span style='font-size:0.85em;color:#8090a8;'>{_tinfo['desc']}</span>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        if not _is_active:
+            if st.button(f"{_tinfo['label']} に切り替え", key=f"theme_btn_{_tid}", use_container_width=False):
+                st.session_state["color_theme"] = _tid
+                st.rerun()
+
+    st.markdown("---")
+    st.markdown("### 📋 今後追加予定のテーマ")
+    st.info("ホワイト（白・クリーン）、ライトネイビー（明るめ紺）などを順次追加予定です。")
 
 # =====================
 # 免責事項
