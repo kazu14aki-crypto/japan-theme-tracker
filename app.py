@@ -17,7 +17,8 @@ st.set_page_config(
     page_title="StockWaveJP",
     page_icon=_favicon,
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
+    menu_items={}
 )
 
 # ── StockWaveJP ロゴ（Streamlit標準ヘッダーバーにCSSで埋め込む） ──
@@ -464,6 +465,17 @@ hr {{
         padding-right: 0.8rem !important;
     }}
 }}
+
+/* ── ツールバー・デプロイボタン・フッター等を非表示 ── */
+header[data-testid="stHeader"] .stToolbar {{ display: none !important; }}
+[data-testid="stToolbar"] {{ display: none !important; }}
+[data-testid="stDecoration"] {{ display: none !important; }}
+[data-testid="stDeployButton"] {{ display: none !important; }}
+#MainMenu {{ display: none !important; }}
+footer {{ display: none !important; }}
+.stActionButton {{ display: none !important; }}
+button[title="View fullscreen"] {{ display: none !important; }}
+button[data-testid="baseButton-header"] {{ display: none !important; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -621,7 +633,7 @@ DEFAULT_THEMES = {
         "ソリトンシステムズ":"3040.T","野村総合研究所":"4307.T",
         "セキュアワークス":"なし","Macnica Holdings":"3132.T",
     },
-    "ドローン・空飛ぶ車": {
+    "ドローン": {
         "ACSLエアロスペース":"6232.T","ヤマハ発動機":"7272.T",
         "川崎重工業":"7012.T","NTT":"9432.T","富士通":"6702.T",
         "セキド":"9878.T","テラ":"2758.T",
