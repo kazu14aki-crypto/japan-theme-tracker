@@ -22,9 +22,9 @@ st.set_page_config(
 
 # ── StockWaveJP SVGロゴ（案②E / 横型ヘッダー） ──
 st.markdown("""
-<div style="display:flex;align-items:center;gap:14px;padding:10px 0 6px 0;">
+<div style="display:flex;align-items:center;gap:10px;padding:4px 0 2px 0;">
   <!-- 日の出＋波アイコン -->
-  <svg width="52" height="52" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="36" height="36" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
     <line x1="28" y1="4" x2="28" y2="10" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
     <line x1="42" y1="9"  x2="38" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
     <line x1="14" y1="9"  x2="18" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
@@ -40,11 +40,11 @@ st.markdown("""
   <!-- テキスト部 -->
   <div style="display:flex;flex-direction:column;gap:2px;line-height:1;">
     <div style="display:flex;align-items:baseline;gap:0;">
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:36px;letter-spacing:0.06em;color:#e63030;text-shadow:0 0 20px rgba(230,48,48,0.3);line-height:1;">STOCK</span>
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:36px;letter-spacing:0.06em;color:#ffffff;line-height:1;">WAVE</span>
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:16px;letter-spacing:0.3em;color:#e63030;padding-bottom:3px;margin-left:4px;line-height:1;">JP</span>
+      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:26px;letter-spacing:0.06em;color:#e63030;text-shadow:0 0 20px rgba(230,48,48,0.3);line-height:1;">STOCK</span>
+      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:26px;letter-spacing:0.06em;color:#ffffff;line-height:1;">WAVE</span>
+      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:13px;letter-spacing:0.3em;color:#e63030;padding-bottom:3px;margin-left:4px;line-height:1;">JP</span>
     </div>
-    <div style="font-size:11px;letter-spacing:0.55em;color:#3a4560;font-weight:700;">株　式　波　動</div>
+    <div style="font-size:9px;letter-spacing:0.45em;color:#3a4560;font-weight:700;">株　式　波　動</div>
   </div>
 </div>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
@@ -375,6 +375,27 @@ div[data-testid="column"] div.stButton > button:hover {{
 
 /* ── Plotlyチャート ── */
 .stPlotlyChart {{ overflow-x: auto; }}
+
+/* ── 全体余白の削減（情報密度を上げる） ── */
+.block-container {
+    padding-top: 0.5rem !important;
+    padding-bottom: 1rem !important;
+}
+/* サブヘッダー上下余白を詰める */
+h2, h3 {
+    margin-top: 0.4em !important;
+    margin-bottom: 0.2em !important;
+}
+/* subheader直後のdivider余白を詰める */
+hr {
+    margin-top: 0.3em !important;
+    margin-bottom: 0.3em !important;
+}
+/* caption 上下余白を詰める */
+[data-testid="stCaptionContainer"] {
+    margin-top: 0 !important;
+    margin-bottom: 0.1em !important;
+}
 
 /* ── レスポンシブ（スマホ文字サイズ最適化） ── */
 @media (max-width: 640px) {{
@@ -1149,52 +1170,30 @@ def make_price_chart(df, display_df, chart_type="candlestick", show_ma=True):
     )
     return fig
 
-def period_buttons(key_prefix="main"):
+def period_buttons(key_prefix="main", col=None):
     """
-    期間選択：PCはボタン横並び、スマホはセレクトボックス1行で表示。
-    st.columnsはスマホで縦並びになるため、JavaScript経由の幅判定はできない。
-    代わりにselectboxをコンパクトに配置し、全画面を占有しないよう制御。
+    期間選択セレクトボックス。
+    col を渡すと そのカラム内に配置、None なら自前で [1,3] 列を作る。
     """
-    st.markdown("""
-    <style>
-    /* 期間選択セレクトボックスをコンパクトに */
-    div[data-testid="stSelectbox"] {
-        max-width: 200px !important;
-    }
-    div[data-testid="stSelectbox"] > div {
-        min-height: 2em !important;
-    }
-    div[data-testid="stSelectbox"] label {
-        display: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
     period_opts   = get_period_options()
     period_labels = list(period_opts.keys())
-    # selected_periodをyfinance値で保存し、ラベルは動的に変換
-    current_val = st.session_state.get("selected_period_val", "1mo")
-    # ラベルからcurrent_valに対応するラベルを探す
-    val_to_label = {v: k for k, v in period_opts.items()}
-    current_label = val_to_label.get(current_val, period_labels[2])  # デフォルト1M
+    current_val   = st.session_state.get("selected_period_val", "1mo")
+    val_to_label  = {v: k for k, v in period_opts.items()}
+    current_label = val_to_label.get(current_val, period_labels[2])
 
-    col_sel, col_cap = st.columns([1, 3])
-    with col_sel:
+    target = col if col is not None else st.columns([1, 3])[0]
+    with target:
         selected = st.selectbox(
-            "表示期間",
+            "📅 期間",
             period_labels,
             index=period_labels.index(current_label) if current_label in period_labels else 2,
             key=f"period_sel_{key_prefix}",
-            label_visibility="collapsed",
         )
-    with col_cap:
-        st.markdown(f"<div style='padding-top:0.5em; font-size:0.9em; color:#aaa;'>📅 {selected}</div>",
-                    unsafe_allow_html=True)
 
     selected_val = period_opts[selected]
     if selected_val != current_val:
         st.session_state["selected_period_val"] = selected_val
-        st.session_state["selected_period"] = selected  # 後方互換
+        st.session_state["selected_period"] = selected
         st.rerun()
 
     return selected_val
@@ -1512,7 +1511,11 @@ div[data-testid="stSelectbox"].compact-sel label {
 elif pidx == PAGE_MOMENTUM:
     st.subheader("📡 騰落モメンタム")
     st.caption("現在の騰落率 ＋ 先週比・先月比の変化で「加速・失速・転換」テーマを一目で把握")
-    period = period_buttons(key_prefix="momentum_page")
+    # 期間 ＋ 並び替えを1行横並び
+    _mc1, _mc2, _mc3 = st.columns([1, 1, 2])
+    period = period_buttons(key_prefix="momentum_page", col=_mc1)
+    with _mc2:
+        sort_key = st.selectbox("📊 並び替え", ["騰落率（降順）", "先週比変化（降順）", "先月比変化（降順）"])
 
     theme_keys = tuple(themes.keys())
     with st.spinner("データ取得中..."):
@@ -1537,10 +1540,6 @@ elif pidx == PAGE_MOMENTUM:
         elif dw < -2:              state = "↘転換↓"
         else:                      state = "→横ばい"
         momentum_data.append({"テーマ": theme_n, "騰落率": cur, "先週比": dw, "先月比": dm, "状態": state})
-
-    # 並び替え選択
-    sort_key = st.selectbox("並び替え", ["騰落率（降順）", "先週比変化（降順）", "先月比変化（降順）"],
-                             label_visibility="collapsed")
     if sort_key == "騰落率（降順）":
         momentum_data.sort(key=lambda x: x["騰落率"], reverse=True)
     elif sort_key == "先週比変化（降順）":
@@ -1548,9 +1547,10 @@ elif pidx == PAGE_MOMENTUM:
     else:
         momentum_data.sort(key=lambda x: x["先月比"], reverse=True)
 
-    # フィルター
-    filter_state = st.multiselect("状態フィルター（空=全表示）",
-                                   ["🔥加速","↗転換↑","→横ばい","↘転換↓","❄️失速"])
+    # フィルター（3列目に配置）
+    with _mc3:
+        filter_state = st.multiselect("🔍 状態フィルター",
+                                       ["🔥加速","↗転換↑","→横ばい","↘転換↓","❄️失速"])
     if filter_state:
         momentum_data = [d for d in momentum_data if d["状態"] in filter_state]
 
@@ -1590,7 +1590,8 @@ elif pidx == PAGE_MOMENTUM:
 elif pidx == PAGE_FUND_FLOW:
     st.subheader("💹 テーマ別 資金フロー")
     st.caption("上昇テーマ vs 下落テーマの騰落幅を比較。どのテーマに資金が集まっているか把握できます。")
-    period = period_buttons(key_prefix="flow_page")
+    _fc1, _fc2 = st.columns([1, 3])
+    period = period_buttons(key_prefix="flow_page", col=_fc1)
 
     theme_keys = tuple(themes.keys())
     with st.spinner("データ取得中..."):
@@ -2042,7 +2043,8 @@ elif pidx == PAGE_HEATMAP:
 
 elif pidx == PAGE_COMPARE:
     st.subheader("📉 テーマ間比較チャート")
-    period = period_buttons(key_prefix="comp")
+    _cc1, _cc2 = st.columns([1, 3])
+    period = period_buttons(key_prefix="comp", col=_cc1)
     _en2jp_cmp = {k: k for k in themes.keys()}
     _cmp_opts = [k for k in themes.keys()]
     _cmp_def = _cmp_opts[:2]
@@ -2088,7 +2090,8 @@ elif pidx == PAGE_COMPARE:
 # =====================
 elif pidx == PAGE_MACRO:
     st.subheader("🌍 マクロ指標との比較")
-    period = period_buttons(key_prefix="macro")
+    _mac1, _mac2 = st.columns([1, 3])
+    period = period_buttons(key_prefix="macro", col=_mac1)
     selected_stock_name = st.selectbox("比較する銘柄を選択", list(all_stocks.keys()))
     selected_ticker = all_stocks[selected_stock_name]
     macro_items = {"日経平均":"^N225","S&P500":"^GSPC","ドル円":"JPY=X","TOPIX(ETF)":"1306.T"}
@@ -2129,7 +2132,8 @@ elif pidx == PAGE_MACRO:
 elif pidx == PAGE_MARKET_RANK:
     st.subheader("📋 市場別ランキング")
     st.caption("日経225・プライム・スタンダード・グロース別の騰落率ランキング")
-    period = period_buttons(key_prefix="market")
+    _mrk1, _mrk2 = st.columns([1, 3])
+    period = period_buttons(key_prefix="market", col=_mrk1)
 
     for seg_name, seg_stocks in MARKET_SEGMENTS.items():
         with st.expander(f"📌 {seg_name}", expanded=True):
@@ -2209,7 +2213,8 @@ elif pidx == PAGE_MARKET_RANK:
 # =====================
 elif pidx == PAGE_FAVORITES:
     st.subheader("⭐ お気に入り銘柄")
-    period = period_buttons(key_prefix="fav")
+    _fv1, _fv2 = st.columns([1, 3])
+    period = period_buttons(key_prefix="fav", col=_fv1)
     if len(st.session_state["favorites"]) == 0:
         st.info("テーマ一覧ページで「☆ 登録」ボタンを押して追加してください。")
     else:
@@ -2269,7 +2274,8 @@ elif pidx == PAGE_FAVORITES:
 elif pidx == PAGE_THEME_DETAIL:
     st.subheader("🔍 テーマ別詳細")
     st.caption(f"🕐 {_get_now_str()}")
-    period = period_buttons(key_prefix="theme_detail")
+    _td1, _td2 = st.columns([1, 3])
+    period = period_buttons(key_prefix="theme_detail", col=_td1)
 
     theme_keys = tuple(themes.keys())
     with st.spinner("データ取得中..."):
