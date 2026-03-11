@@ -194,22 +194,7 @@ div[data-testid="stHorizontalBlock"]:has(.toggle-wrap) {
 </style>
 """, unsafe_allow_html=True)
 
-# ── トグル（右端） ──
-_spacer_col, _toggle_col = st.columns([4, 1])
-with _toggle_col:
-    st.markdown('<div class="toggle-wrap" style="display:flex;justify-content:flex-end;">', unsafe_allow_html=True)
-    _toggle_val = st.radio(
-        "表示モード",
-        ["📱 モバイル", "🖥️ PC"],
-        index=0 if _is_mobile else 1,
-        key="view_toggle_radio",
-        horizontal=True,
-        label_visibility="collapsed",
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
-    if (_toggle_val == "📱 モバイル") != _is_mobile:
-        st.session_state["view_mode"] = "mobile" if _toggle_val == "📱 モバイル" else "desktop"
-        st.rerun()
+
 
 # ── スマホ時に追加で適用するCSS ──
 if _is_mobile:
@@ -1430,28 +1415,8 @@ pidx = st.session_state.get("current_page_idx", 0)
 if pidx == PAGE_THEME_LIST:
     now = _get_now_str()
 
-    # 期間選択 ＋ テーマ数選択（幅を抑えてコンパクト配置）
-    # [期間▼] [テーマ数▼] + 右側に余白を持たせる
-    # 期間選択 ＋ テーマ数選択
-    # max-widthで幅を絞り、スマホでも1行に確実に収める
-    st.markdown("""
-<style>
-/* 期間・テーマ数セレクトボックスを小さく固定 */
-div[data-testid="stSelectbox"].compact-sel {
-    max-width: 130px !important;
-}
-div[data-testid="stSelectbox"].compact-sel > div {
-    min-height: 2em !important;
-}
-div[data-testid="stSelectbox"].compact-sel label {
-    font-size: 0.75em !important;
-    color: #8090a8 !important;
-    margin-bottom: 1px !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-    _col_period, _col_count, _col_spacer = st.columns([1, 1, 2])
+    # ── 期間・テーマ数・トグルを1行に ──
+    _col_period, _col_count, _col_sp, _col_toggle = st.columns([2, 2, 1, 2])
 
     # 期間選択
     period_opts   = get_period_options()
@@ -1476,6 +1441,22 @@ div[data-testid="stSelectbox"].compact-sel label {
             [5, 10, 15, 25, 99],
             index=0,
         )
+
+    # モバイル／PCトグル
+    with _col_toggle:
+        st.markdown('<div class="toggle-wrap" style="padding-top:22px;">', unsafe_allow_html=True)
+        _toggle_val = st.radio(
+            "表示モード",
+            ["📱 モバイル", "🖥️ PC"],
+            index=0 if _is_mobile else 1,
+            key="view_toggle_radio",
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+        if (_toggle_val == "📱 モバイル") != _is_mobile:
+            st.session_state["view_mode"] = "mobile" if _toggle_val == "📱 モバイル" else "desktop"
+            st.rerun()
 
     theme_keys = tuple(themes.keys())
     with st.spinner("データを取得中...（初回は時間がかかります）"):
