@@ -2318,10 +2318,30 @@ elif pidx == PAGE_MARKET_RANK:
                     bargap=0.2,
                     margin=dict(t=8, b=36, l=_lm, r=80),
                 )
+                # グラフ内：上位5と下位5の間に点線を追加
+                if bot5:
+                    _boundary_y = len(top5) - 0.5  # 上位5の最後と下位5の最初の間
+                    _fig_m.add_shape(
+                        type="line",
+                        x0=_xrange[0], x1=_xrange[1],
+                        y0=_boundary_y, y1=_boundary_y,
+                        line=dict(color="#888888", width=1.5, dash="dot"),
+                        layer="above",
+                    )
+                    # 区切りアノテーション
+                    _fig_m.add_annotation(
+                        x=_xrange[1], y=_boundary_y,
+                        text="── 上位 / 下位 ──",
+                        showarrow=False,
+                        font=dict(size=9, color="#888888"),
+                        xanchor="right", yanchor="bottom",
+                    )
+
                 st.markdown("**🔴 上位5 ／ 🟢 下位5**")
                 st.plotly_chart(_fig_m, use_container_width=True, config=PLOT_CONFIG)
 
                 # 上位5件テーブル（コード・出来高追加・列幅最適化）
+                st.markdown("**🔴 上位5銘柄**")
                 df_top5 = pd.DataFrame([{
                     "コード":   r["コード"],
                     "銘柄名":   r["銘柄名"],
@@ -2333,6 +2353,27 @@ elif pidx == PAGE_MARKET_RANK:
                 } for r in top5])
                 st.dataframe(df_top5, use_container_width=False,
                              column_config=_col_cfg_top5, hide_index=True)
+
+                # 点線セパレーター
+                if bot5:
+                    st.markdown("""
+<div style="border-top: 1.5px dashed #555; margin: 10px 0 6px 0;
+            display:flex; align-items:center; gap:8px;">
+  <span style="font-size:11px; color:#888; white-space:nowrap; background:transparent;
+               padding: 0 6px;">▼ 下位5銘柄</span>
+  <div style="flex:1; border-top: 1.5px dashed #555;"></div>
+</div>""", unsafe_allow_html=True)
+                    df_bot5 = pd.DataFrame([{
+                        "コード":   r["コード"],
+                        "銘柄名":   r["銘柄名"],
+                        "株価":     r["株価"],
+                        "前日比":   r["前日比"],
+                        "騰落率":   f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                        "出来高":   r["出来高"],
+                        "売買代金": r["売買代金"],
+                    } for r in bot5])
+                    st.dataframe(df_bot5, use_container_width=False,
+                                 column_config=_col_cfg_top5, hide_index=True)
 
                 # 全件展開（デフォルト閉じる）
                 with st.expander("全{}銘柄を表示".format(n_seg), expanded=False):
