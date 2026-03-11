@@ -56,32 +56,7 @@ header[data-testid="stHeader"] > div {
 </style>
 """, unsafe_allow_html=True)
 
-# ── ロゴ（通常フロー内・スクロール時も先頭に表示される） ──
-st.markdown("""
-<div style="display:flex;align-items:center;gap:10px;padding:2px 0 2px 0;border-bottom:1px solid #1a1e30;margin-bottom:4px;">
-  <svg width="32" height="32" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <line x1="28" y1="4" x2="28" y2="10" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="42" y1="9"  x2="38" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="14" y1="9"  x2="18" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="50" y1="21" x2="45" y2="23" stroke="#e63030" stroke-width="1.8" stroke-linecap="round"/>
-    <line x1="6"  y1="21" x2="11" y2="23" stroke="#e63030" stroke-width="1.8" stroke-linecap="round"/>
-    <path d="M11,31 A17,17 0 0,1 45,31" fill="none" stroke="#e63030" stroke-width="2.5"/>
-    <circle cx="28" cy="31" r="5.5" fill="#e63030"/>
-    <line x1="3"  y1="31" x2="11" y2="31" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
-    <line x1="45" y1="31" x2="53" y2="31" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M3,43 Q9,36 15,43 Q21,50 27,43 Q33,36 39,43 Q45,50 51,43 Q54,36 53,43"
-      stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-  <div style="display:flex;flex-direction:column;gap:1px;line-height:1;">
-    <div style="display:flex;align-items:baseline;gap:0;">
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:22px;letter-spacing:0.06em;color:#e63030;text-shadow:0 0 16px rgba(230,48,48,0.3);line-height:1;">STOCK</span>
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:22px;letter-spacing:0.06em;color:#ffffff;line-height:1;">WAVE</span>
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:11px;letter-spacing:0.3em;color:#e63030;padding-bottom:2px;margin-left:4px;line-height:1;">JP</span>
-    </div>
-    <div style="font-size:8px;letter-spacing:0.45em;color:#3a4560;font-weight:700;">株　式　波　動</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+
 
 # =====================
 # カラーテーマ CSS定義
@@ -211,30 +186,49 @@ div[data-testid="stHorizontalBlock"]:has(div.toggle-row) { gap: 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# トグルを右端に寄せるCSS（columnsによる空白を排除）
-st.markdown("""
-<style>
-.toggle-outer {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: -0.5rem;
-}
-</style>
-<div class="toggle-outer"><div class="toggle-wrap" style="display:inline-block;">
+# ── ロゴ ＋ トグルを1行に（左：ロゴ、右：トグル） ──
+_logo_col, _toggle_col = st.columns([3, 1])
+with _logo_col:
+    st.markdown("""
+<div style="display:flex;align-items:center;gap:8px;padding:2px 0;">
+  <svg width="28" height="28" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <line x1="28" y1="4" x2="28" y2="10" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="42" y1="9"  x2="38" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="14" y1="9"  x2="18" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="50" y1="21" x2="45" y2="23" stroke="#e63030" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="6"  y1="21" x2="11" y2="23" stroke="#e63030" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M11,31 A17,17 0 0,1 45,31" fill="none" stroke="#e63030" stroke-width="2.5"/>
+    <circle cx="28" cy="31" r="5.5" fill="#e63030"/>
+    <line x1="3"  y1="31" x2="11" y2="31" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="45" y1="31" x2="53" y2="31" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M3,43 Q9,36 15,43 Q21,50 27,43 Q33,36 39,43 Q45,50 51,43 Q54,36 53,43"
+      stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <div style="line-height:1;">
+    <div style="display:flex;align-items:baseline;gap:0;">
+      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:20px;letter-spacing:0.06em;color:#e63030;line-height:1;">STOCK</span>
+      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:20px;letter-spacing:0.06em;color:#ffffff;line-height:1;">WAVE</span>
+      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:10px;letter-spacing:0.3em;color:#e63030;margin-left:3px;line-height:1;">JP</span>
+    </div>
+    <div style="font-size:7px;letter-spacing:0.4em;color:#3a4560;font-weight:700;">株　式　波　動</div>
+  </div>
+</div>
 """, unsafe_allow_html=True)
 
-_toggle_val = st.radio(
-    "表示モード",
-    ["📱 モバイル", "🖥️ PC"],
-    index=0 if _is_mobile else 1,
-    key="view_toggle_radio",
-    horizontal=True,
-    label_visibility="collapsed",
-)
-st.markdown('</div></div>', unsafe_allow_html=True)
-if (_toggle_val == "📱 モバイル") != _is_mobile:
-    st.session_state["view_mode"] = "mobile" if _toggle_val == "📱 モバイル" else "desktop"
-    st.rerun()
+with _toggle_col:
+    st.markdown('<div class="toggle-wrap" style="display:flex;justify-content:flex-end;padding-top:4px;">', unsafe_allow_html=True)
+    _toggle_val = st.radio(
+        "表示モード",
+        ["📱 モバイル", "🖥️ PC"],
+        index=0 if _is_mobile else 1,
+        key="view_toggle_radio",
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+    if (_toggle_val == "📱 モバイル") != _is_mobile:
+        st.session_state["view_mode"] = "mobile" if _toggle_val == "📱 モバイル" else "desktop"
+        st.rerun()
 
 # ── スマホ時に追加で適用するCSS ──
 if _is_mobile:
@@ -426,13 +420,13 @@ div[data-testid="column"] div.stButton > button:hover {{
 
 /* ── 全体余白の削減（情報密度を上げる） ── */
 .block-container {{
-    padding-top: 0.2rem !important;
+    padding-top: 0.1rem !important;
     padding-bottom: 1rem !important;
 }}
 /* サブヘッダー上下余白を詰める */
 h2, h3 {{
-    margin-top: 0.4em !important;
-    margin-bottom: 0.2em !important;
+    margin-top: 0.2em !important;
+    margin-bottom: 0.1em !important;
 }}
 /* subheader直後のdivider余白を詰める */
 hr {{
