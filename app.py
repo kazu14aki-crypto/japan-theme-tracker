@@ -2195,8 +2195,30 @@ elif pidx == PAGE_MARKET_RANK:
     _mrk1, _mrk2 = st.columns([1, 3])
     period = period_buttons(key_prefix="market", col=_mrk1)
 
+    # テーブル列幅設定（column_config）
+    _col_cfg_top5 = {
+        "コード":      st.column_config.TextColumn("コード",    width=70),
+        "銘柄名":      st.column_config.TextColumn("銘柄名",    width=140),
+        "株価":        st.column_config.TextColumn("株価",      width=90),
+        "前日比":      st.column_config.TextColumn("前日比",    width=110),
+        "騰落率":      st.column_config.TextColumn("騰落率",    width=110),
+        "出来高":      st.column_config.TextColumn("出来高",    width=90),
+        "売買代金":    st.column_config.TextColumn("売買代金",  width=100),
+    }
+    _col_cfg_all = {
+        "順位":        st.column_config.TextColumn("順位",      width=55),
+        "コード":      st.column_config.TextColumn("コード",    width=70),
+        "銘柄名":      st.column_config.TextColumn("銘柄名",    width=140),
+        "株価":        st.column_config.TextColumn("株価",      width=90),
+        "前日比":      st.column_config.TextColumn("前日比",    width=110),
+        "騰落率":      st.column_config.TextColumn("騰落率",    width=110),
+        "出来高":      st.column_config.TextColumn("出来高",    width=90),
+        "売買代金":    st.column_config.TextColumn("売買代金",  width=100),
+    }
+
     for seg_name, seg_stocks in MARKET_SEGMENTS.items():
-        with st.expander(f"📌 {seg_name}", expanded=True):
+        # デフォルト閉じる（expanded=False）
+        with st.expander(f"📌 {seg_name}", expanded=False):
             with st.spinner("{} データ取得中...".format(seg_name)):
                 seg_results = []
                 for stock_name, ticker in seg_stocks.items():
@@ -2209,14 +2231,22 @@ elif pidx == PAGE_MARKET_RANK:
                         if change is None: continue
                         day_c = round((df["Close"].iloc[-1]-df["Close"].iloc[-2])/df["Close"].iloc[-2]*100,2) if len(df)>=2 else None
                         price = int(df["Close"].iloc[-1])
+                        # 出来高：直近1日の実際の出来高
+                        volume_raw = int(df["Volume"].iloc[-1])
+                        volume_str = f"{volume_raw:,}株"
                         rv = target_df["Volume"].mean()
                         trade_val = int(rv * price)
+                        # 証券コード（tickerから4桁を抽出）
+                        code = ticker.split(".")[0] if "." in ticker else ticker
                         seg_results.append({
-                            "銘柄": stock_name, "株価": f"¥{price:,}",
-                            "前日比": f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
-                            "騰落率": change,
+                            "コード":   code,
+                            "銘柄名":   stock_name,
+                            "株価":     f"¥{price:,}",
+                            "前日比":   f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
+                            "騰落率":   change,
+                            "出来高":   volume_str,
                             "売買代金": format_large_number(trade_val),
-                            "ticker": ticker,
+                            "ticker":   ticker,
                         })
                     except: pass
 
@@ -2224,14 +2254,14 @@ elif pidx == PAGE_MARKET_RANK:
                 seg_results.sort(key=lambda x: x["騰落率"], reverse=True)
                 n_seg = len(seg_results)
 
-                # 上位5件グラフ
+                # 上位5件グラフ（ラベルにコードを追加）
                 top5 = seg_results[:5]
                 bot5 = seg_results[-5:] if n_seg > 5 else []
 
                 col_t, col_b = st.columns(2)
                 with col_t:
                     st.markdown("**🔴 上位5銘柄**")
-                    t_labels = [f"{i+1}位 {r['銘柄']}" for i, r in enumerate(top5)]
+                    t_labels = [f"{i+1}位 {r['コード']} {r['銘柄名']}" for i, r in enumerate(top5)]
                     t_values = [r["騰落率"] for r in top5]
                     t_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in t_values]
                     st.plotly_chart(make_bar_chart(t_labels, t_values, t_colors),
@@ -2239,31 +2269,39 @@ elif pidx == PAGE_MARKET_RANK:
                 with col_b:
                     if bot5:
                         st.markdown("**🟢 下位5銘柄**")
-                        b_labels = [f"{n_seg-4+i+1}位 {r['銘柄']}" for i, r in enumerate(bot5)]
+                        b_labels = [f"{n_seg-4+i+1}位 {r['コード']} {r['銘柄名']}" for i, r in enumerate(bot5)]
                         b_values = [r["騰落率"] for r in bot5]
                         b_colors = ["#ff4b4b" if v>=0 else "#39d353" for v in b_values]
                         st.plotly_chart(make_bar_chart(b_labels, b_values, b_colors),
                                         use_container_width=True, config=PLOT_CONFIG)
 
-                # 上位5件テーブル
+                # 上位5件テーブル（コード・出来高追加・列幅最適化）
                 df_top5 = pd.DataFrame([{
-                    "銘柄": r["銘柄"], "株価": r["株価"],
-                    "前日比": r["前日比"],
-                    "騰落率": f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                    "コード":   r["コード"],
+                    "銘柄名":   r["銘柄名"],
+                    "株価":     r["株価"],
+                    "前日比":   r["前日比"],
+                    "騰落率":   f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                    "出来高":   r["出来高"],
                     "売買代金": r["売買代金"],
-                } for r in top5]).set_index("銘柄")
-                st.dataframe(df_top5, use_container_width=True)
+                } for r in top5])
+                st.dataframe(df_top5, use_container_width=False,
+                             column_config=_col_cfg_top5, hide_index=True)
 
-                # 全件展開
-                with st.expander("全{}銘柄を表示".format(n_seg)):
+                # 全件展開（デフォルト閉じる）
+                with st.expander("全{}銘柄を表示".format(n_seg), expanded=False):
                     df_all_seg = pd.DataFrame([{
-                        "順位": "{}位".format(i+1),
-                        "銘柄": r["銘柄"], "株価": r["株価"],
-                        "前日比": r["前日比"],
-                        "騰落率": f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
-                            "売買代金": r["売買代金"],
-                    } for i, r in enumerate(seg_results)]).set_index("順位")
-                    st.dataframe(df_all_seg, use_container_width=True)
+                        "順位":     "{}位".format(i+1),
+                        "コード":   r["コード"],
+                        "銘柄名":   r["銘柄名"],
+                        "株価":     r["株価"],
+                        "前日比":   r["前日比"],
+                        "騰落率":   f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                        "出来高":   r["出来高"],
+                        "売買代金": r["売買代金"],
+                    } for i, r in enumerate(seg_results)])
+                    st.dataframe(df_all_seg, use_container_width=False,
+                                 column_config=_col_cfg_all, hide_index=True)
 
 # =====================
 # 銘柄検索
