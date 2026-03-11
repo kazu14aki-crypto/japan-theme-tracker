@@ -377,25 +377,25 @@ div[data-testid="column"] div.stButton > button:hover {{
 .stPlotlyChart {{ overflow-x: auto; }}
 
 /* ── 全体余白の削減（情報密度を上げる） ── */
-.block-container {
+.block-container {{
     padding-top: 0.5rem !important;
     padding-bottom: 1rem !important;
-}
+}}
 /* サブヘッダー上下余白を詰める */
-h2, h3 {
+h2, h3 {{
     margin-top: 0.4em !important;
     margin-bottom: 0.2em !important;
-}
+}}
 /* subheader直後のdivider余白を詰める */
-hr {
+hr {{
     margin-top: 0.3em !important;
     margin-bottom: 0.3em !important;
-}
+}}
 /* caption 上下余白を詰める */
-[data-testid="stCaptionContainer"] {
+[data-testid="stCaptionContainer"] {{
     margin-top: 0 !important;
     margin-bottom: 0.1em !important;
-}
+}}
 
 /* ── レスポンシブ（スマホ文字サイズ最適化） ── */
 @media (max-width: 640px) {{
