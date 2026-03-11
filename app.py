@@ -20,11 +20,39 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ── StockWaveJP SVGロゴ（案②E / 横型ヘッダー） ──
+# ── StockWaveJP 固定ヘッダー ──
 st.markdown("""
-<div style="display:flex;align-items:center;gap:10px;padding:4px 0 2px 0;">
-  <!-- 日の出＋波アイコン -->
-  <svg width="36" height="36" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+/* Streamlitデフォルトのツールバーを非表示にしてヘッダーと重ならないようにする */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+/* 固定ヘッダー本体 */
+#swjp-fixed-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: #0a0c14;
+    border-bottom: 1px solid #1a1e30;
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 48px;
+    box-sizing: border-box;
+}
+/* ヘッダー分のスペーサー（コンテンツが隠れないよう） */
+#swjp-header-spacer {
+    height: 48px;
+    width: 100%;
+}
+</style>
+
+<div id="swjp-fixed-header">
+  <svg width="32" height="32" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
     <line x1="28" y1="4" x2="28" y2="10" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
     <line x1="42" y1="9"  x2="38" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
     <line x1="14" y1="9"  x2="18" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
@@ -37,17 +65,16 @@ st.markdown("""
     <path d="M3,43 Q9,36 15,43 Q21,50 27,43 Q33,36 39,43 Q45,50 51,43 Q54,36 53,43"
       stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>
-  <!-- テキスト部 -->
-  <div style="display:flex;flex-direction:column;gap:2px;line-height:1;">
+  <div style="display:flex;flex-direction:column;gap:1px;line-height:1;">
     <div style="display:flex;align-items:baseline;gap:0;">
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:26px;letter-spacing:0.06em;color:#e63030;text-shadow:0 0 20px rgba(230,48,48,0.3);line-height:1;">STOCK</span>
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:26px;letter-spacing:0.06em;color:#ffffff;line-height:1;">WAVE</span>
-      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:13px;letter-spacing:0.3em;color:#e63030;padding-bottom:3px;margin-left:4px;line-height:1;">JP</span>
+      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:22px;letter-spacing:0.06em;color:#e63030;text-shadow:0 0 16px rgba(230,48,48,0.3);line-height:1;">STOCK</span>
+      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:22px;letter-spacing:0.06em;color:#ffffff;line-height:1;">WAVE</span>
+      <span style="font-family:'Bebas Neue','Arial Black',sans-serif;font-size:11px;letter-spacing:0.3em;color:#e63030;padding-bottom:2px;margin-left:4px;line-height:1;">JP</span>
     </div>
-    <div style="font-size:9px;letter-spacing:0.45em;color:#3a4560;font-weight:700;">株　式　波　動</div>
+    <div style="font-size:8px;letter-spacing:0.45em;color:#3a4560;font-weight:700;">株　式　波　動</div>
   </div>
 </div>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+<div id="swjp-header-spacer"></div>
 """, unsafe_allow_html=True)
 
 # =====================
@@ -235,6 +262,12 @@ _c  = COLOR_THEMES.get(_ct, COLOR_THEMES["dark"])
 st.markdown(f"""
 <style>
 /* ── カラーテーマ: {_ct} ── */
+
+/* 固定ヘッダーの背景をカラーテーマに合わせる */
+#swjp-fixed-header {{
+    background: {_c['bg_sidebar']} !important;
+    border-bottom: 1px solid {_c['border']} !important;
+}}
 
 /* ── アプリ全体背景 ── */
 .stApp {{
