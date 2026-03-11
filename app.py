@@ -32,13 +32,13 @@ header[data-testid="stHeader"] {
     border-bottom: 1px solid #1a1e30 !important;
     height: 48px !important;
 }
-/* ヘッダー内にロゴをCSSで挿入（::beforeはSVG不可のためテキストロゴ） */
+/* ヘッダー内にロゴをCSSで挿入 */
 header[data-testid="stHeader"]::before {
-    content: "STOCKWAVE JP";
-    font-family: 'Arial Black', 'Bebas Neue', sans-serif;
-    font-size: 18px;
+    content: "StockWaveJP";
+    font-family: 'Arial Black', sans-serif;
+    font-size: 22px;
     font-weight: 900;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
     color: #ffffff;
     position: absolute;
     left: 16px;
@@ -1320,7 +1320,51 @@ div[data-testid="stSidebar"] .stButton:nth-of-type({_pidx_now + 2}) > button {{
 </style>
 """, unsafe_allow_html=True)
 
-st.sidebar.markdown(f"### {'メニュー'}")
+# ── サイドバー上部：ロゴ固定表示 ──
+st.sidebar.markdown("""
+<style>
+/* サイドバーロゴを上部固定 */
+div[data-testid="stSidebar"] > div:first-child {
+    padding-top: 0 !important;
+}
+#swjp-sidebar-logo {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #0d1020;
+    padding: 10px 12px 8px 12px;
+    margin: -1rem -1rem 0.5rem -1rem;
+    border-bottom: 1px solid #1a1e30;
+}
+</style>
+<div id="swjp-sidebar-logo">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <svg width="28" height="28" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="28" y1="4" x2="28" y2="10" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="42" y1="9"  x2="38" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="14" y1="9"  x2="18" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="50" y1="21" x2="45" y2="23" stroke="#e63030" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="6"  y1="21" x2="11" y2="23" stroke="#e63030" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M11,31 A17,17 0 0,1 45,31" fill="none" stroke="#e63030" stroke-width="2.5"/>
+      <circle cx="28" cy="31" r="5.5" fill="#e63030"/>
+      <line x1="3"  y1="31" x2="11" y2="31" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="45" y1="31" x2="53" y2="31" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M3,43 Q9,36 15,43 Q21,50 27,43 Q33,36 39,43 Q45,50 51,43 Q54,36 53,43"
+        stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div style="line-height:1;">
+      <div style="display:flex;align-items:baseline;gap:0;">
+        <span style="font-family:'Arial Black',sans-serif;font-size:16px;font-weight:900;color:#e63030;letter-spacing:0.03em;">Stock</span>
+        <span style="font-family:'Arial Black',sans-serif;font-size:16px;font-weight:900;color:#ffffff;letter-spacing:0.03em;">Wave</span>
+        <span style="font-family:'Arial Black',sans-serif;font-size:10px;font-weight:900;color:#e63030;margin-left:2px;letter-spacing:0.1em;">JP</span>
+      </div>
+      <div style="font-size:7px;letter-spacing:0.4em;color:#3a4560;font-weight:700;margin-top:1px;">株　式　波　動</div>
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+st.sidebar.markdown("### メニュー")
 for _i, _p in enumerate(PAGES):
     if st.sidebar.button(_p, key=f"nav_{_i}", use_container_width=True):
         st.session_state["current_page_idx"] = _i
