@@ -469,52 +469,49 @@ hr {{
 }}
 
 /* ── ツールバー・デプロイボタン・フッター等を非表示 ── */
-/* サイドバー開閉ボタン(≡)は残し、それ以外のツールバーを非表示 */
+/* サイドバー開閉ボタン(baseButton-header)は残し、それ以外を非表示 */
 [data-testid="stDecoration"] {{ display: none !important; }}
 [data-testid="stDeployButton"] {{ display: none !important; }}
 #MainMenu {{ display: none !important; }}
 footer {{ display: none !important; }}
 button[title="View fullscreen"] {{ display: none !important; }}
-/* Share・スター・編集・GitHubボタンを非表示（開閉ボタンは除外） */
-[data-testid="stToolbar"] > *:not([data-testid="stSidebarNavToggleButton"]) {{
-    display: none !important;
-}}
-/* PC版ツールバーの右側ボタン群を非表示 */
+/* Share・スター・編集ボタン等を非表示（サイドバー開閉ボタンは除外） */
 [data-testid="stToolbarActions"] {{ display: none !important; }}
 header[data-testid="stHeader"] a {{ display: none !important; }}
 header[data-testid="stHeader"] [data-testid="stActionButton"] {{ display: none !important; }}
+/* stToolbar内でbaseButton-header以外を非表示 */
+[data-testid="stToolbar"] button:not([data-testid="baseButton-header"]) {{
+    display: none !important;
+}}
 
-/* ── スマホ：≡ボタンを大きく目立たせる ── */
+/* ── スマホ：サイドバー開閉ボタンを大きく目立たせる ── */
 @media (max-width: 640px) {{
-    /* ヘッダーの≡ボタンを大きくして右端に固定 */
-    [data-testid="stSidebarNavToggleButton"] {{
+    /* 正確なdata-testid: baseButton-header（ヘッダー内のボタン） */
+    button[data-testid="baseButton-header"] {{
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         width: 44px !important;
         height: 44px !important;
+        min-height: 44px !important;
         background: #e63030 !important;
         border-radius: 8px !important;
-        margin: 2px 6px !important;
+        border: none !important;
+        padding: 0 !important;
+        cursor: pointer !important;
+        position: relative !important;
+        z-index: 9999 !important;
     }}
-    [data-testid="stSidebarNavToggleButton"] svg {{
-        width: 24px !important;
-        height: 24px !important;
-        color: #ffffff !important;
+    button[data-testid="baseButton-header"] svg {{
+        width: 22px !important;
+        height: 22px !important;
         fill: #ffffff !important;
         stroke: #ffffff !important;
+        color: #ffffff !important;
     }}
-    /* ヘッダー右端に「☰ メニュー」テキストを表示 */
-    header[data-testid="stHeader"]::after {{
-        content: "☰ メニュー";
-        font-size: 13px;
-        font-weight: 700;
-        color: #e63030;
-        position: absolute;
-        right: 60px;
-        top: 50%;
-        transform: translateY(-50%);
-        pointer-events: none;
+    /* ヘッダー右端に「メニュー」ラベルを追加（ボタンの左隣） */
+    header[data-testid="stHeader"] {{
+        overflow: visible !important;
     }}
 }}
 </style>
