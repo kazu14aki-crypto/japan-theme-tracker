@@ -557,6 +557,13 @@ div[data-testid="stSidebar"] div.stButton > button {{
 footer {{ display: none !important; }}
 button[title="View fullscreen"] {{ display: none !important; }}
 [data-testid="stToolbarActions"] {{ display: none !important; }}
+/* キーボードショートカットボタン・その他残存UIを非表示 */
+[data-testid="stMainBlockContainer"] button[kind="header"] {{ display: none !important; }}
+button[data-testid="baseButton-header"] {{ display: none !important; }}
+[data-testid="stHeader"] button {{ display: none !important; }}
+.stAppHeader button {{ display: none !important; }}
+[aria-label="keyboard shortcuts"] {{ display: none !important; }}
+[data-testid="stHeaderActionElements"] {{ display: none !important; }}
 header[data-testid="stHeader"] a {{ display: none !important; }}
 </style>
 """, unsafe_allow_html=True)
