@@ -1098,8 +1098,8 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
     # rank_labelsがある場合は「XX位  」の幅（最大5文字程度）を加算
     max_label_len = max(len(str(l)) for l in labels)
     rank_prefix_len = 5 if rank_labels else 0  # 「10位  」≒5文字分
-    lm = left_margin if left_margin else max(110, (max_label_len + rank_prefix_len) * 9 + 15)
-    lm = min(lm, 220)
+    lm = left_margin if left_margin else max(120, (max_label_len + rank_prefix_len) * 10 + 15)
+    lm = min(lm, 240)
 
     min_v = min(values)
     max_v = max(values)
@@ -1499,7 +1499,7 @@ if pidx == PAGE_THEME_LIST:
     top_ranks  = [f"{i+1}" for i in range(len(top_results))]
     top_values = [r["平均騰落率(%)"] for r in top_results]
     top_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in top_values]
-    chart_h = max(160, len(top_results) * 28)
+    chart_h = max(200, len(top_results) * 38)
 
     with _col_top:
         st.markdown(f'<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🔴 上昇テーマ TOP{n}</p>', unsafe_allow_html=True)
@@ -1514,7 +1514,7 @@ if pidx == PAGE_THEME_LIST:
         bot_ranks  = [f"{total-n+i+1}" for i in range(len(bot_results))]
         bot_values = [r["平均騰落率(%)"] for r in bot_results]
         bot_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in bot_values]
-        chart_h2 = max(160, len(bot_results) * 28)
+        chart_h2 = max(200, len(bot_results) * 38)
         with _col_bot:
             st.markdown(f'<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🟢 下落テーマ TOP{n}</p>', unsafe_allow_html=True)
             st.plotly_chart(
