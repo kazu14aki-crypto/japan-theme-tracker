@@ -2353,23 +2353,32 @@ elif pidx == PAGE_COMPARE:
         with st.spinner("データ取得中..."):
             fig_comp = go.Figure()
             for theme_name in selected_themes_cmp:
-                all_changes = {}
+                _series_list = []
                 for _, ticker in themes[theme_name].items():
                     try:
                         df = fetch_stock_data(ticker, "2y")
                         if len(df) < 2: continue
                         target_df = get_target_df(df, period)
                         if len(target_df) < 2: continue
-                        cum = (target_df["Close"] / target_df["Close"].iloc[0] - 1) * 100
-                        for date, val in zip(target_df.index, cum):
-                            if date not in all_changes: all_changes[date] = []
-                            all_changes[date].append(val)
+                        # TZを除去して日付のみに正規化
+                        _idx = target_df.index
+                        if hasattr(_idx, "tz") and _idx.tz is not None:
+                            _idx = _idx.tz_localize(None)
+                        _idx = pd.DatetimeIndex([d.normalize() for d in _idx])
+                        _close = pd.Series(target_df["Close"].values, index=_idx)
+                        # 各銘柄を基準日=0%に正規化
+                        _cum = (_close / _close.iloc[0] - 1) * 100
+                        _series_list.append(_cum)
                     except: pass
-                if all_changes:
-                    dates = sorted(all_changes.keys())
-                    avgs = [round(sum(all_changes[d])/len(all_changes[d]),2) for d in dates]
-                    fig_comp.add_trace(go.Scatter(x=dates, y=avgs, mode="lines",
-                                                   name=theme_name, line=dict(width=2)))
+                if _series_list:
+                    # 全銘柄をDataFrameに結合し、日付ごとに平均（欠損は前値補完）
+                    _df_all = pd.concat(_series_list, axis=1)
+                    _df_all = _df_all.sort_index().ffill()
+                    _avg = _df_all.mean(axis=1)
+                    fig_comp.add_trace(go.Scatter(
+                        x=_avg.index, y=_avg.round(2).values,
+                        mode="lines", name=theme_name, line=dict(width=2)
+                    ))
         fig_comp.add_hline(y=0, line_dash="dash", line_color="gray")
         fig_comp.update_layout(
             xaxis=dict(title="日付", dtick="M1", tickformat="%y/%m"),
