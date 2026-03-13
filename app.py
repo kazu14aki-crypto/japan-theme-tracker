@@ -483,6 +483,40 @@ button[title="View fullscreen"] {{ display: none !important; }}
 [data-testid="stToolbarActions"] {{ display: none !important; }}
 header[data-testid="stHeader"] a {{ display: none !important; }}
 header[data-testid="stHeader"] [data-testid="stActionButton"] {{ display: none !important; }}
+
+/* ── スマホ：≡ボタンを大きく目立たせる ── */
+@media (max-width: 640px) {{
+    /* ヘッダーの≡ボタンを大きくして右端に固定 */
+    [data-testid="stSidebarNavToggleButton"] {{
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 44px !important;
+        height: 44px !important;
+        background: #e63030 !important;
+        border-radius: 8px !important;
+        margin: 2px 6px !important;
+    }}
+    [data-testid="stSidebarNavToggleButton"] svg {{
+        width: 24px !important;
+        height: 24px !important;
+        color: #ffffff !important;
+        fill: #ffffff !important;
+        stroke: #ffffff !important;
+    }}
+    /* ヘッダー右端に「☰ メニュー」テキストを表示 */
+    header[data-testid="stHeader"]::after {{
+        content: "☰ メニュー";
+        font-size: 13px;
+        font-weight: 700;
+        color: #e63030;
+        position: absolute;
+        right: 60px;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+    }}
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1442,75 +1476,6 @@ pidx = st.session_state.get("current_page_idx", 0)
 # ── PLOT_CONFIG切り替え（スマホ：ピンチ拡大対応）──
 PLOT_CONFIG = PLOT_CONFIG_MOBILE if _is_mobile else PLOT_CONFIG_PC
 
-if _is_mobile:
-    # ── スマホ用メニューバー ──
-    # アイコン＋日本語ラベルのボタンを横スクロール可能な1行に並べる
-    # Streamlitのst.buttonで3列×3行に分けて表示
-    _MENU_ITEMS = [
-        (0,  "📊", "テーマ一覧"),
-        (1,  "📡", "モメンタム"),
-        (2,  "💹", "資金フロー"),
-        (3,  "📈", "騰落推移"),
-        (4,  "🔥", "ヒートマップ"),
-        (5,  "📉", "テーマ比較"),
-        (7,  "📋", "市場別"),
-        (8,  "🔍", "テーマ詳細"),
-        (9,  "⭐", "お気に入り"),
-    ]
-
-    # CSSでボタンをコンパクトに整形
-    st.markdown("""
-<style>
-/* スマホメニューボタン共通スタイル */
-div[data-testid="stHorizontalBlock"].swjp-mob-menu
-    div[data-testid="column"] div.stButton > button {
-    background: #1a1e30 !important;
-    border: 1px solid #2a2e40 !important;
-    color: #cccccc !important;
-    border-radius: 8px !important;
-    font-size: 11px !important;
-    padding: 4px 2px !important;
-    min-height: 48px !important;
-    line-height: 1.3 !important;
-    white-space: pre-line !important;
-}
-div[data-testid="stHorizontalBlock"].swjp-mob-menu
-    div[data-testid="column"] div.stButton > button:hover {
-    background: #252a3e !important;
-    color: #ffffff !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-    # 3列ずつ3行に分けて表示
-    _rows = [_MENU_ITEMS[i:i+3] for i in range(0, len(_MENU_ITEMS), 3)]
-    for _row_items in _rows:
-        # ラッパーdivにクラスを付与してCSSターゲットにする
-        st.markdown('<div class="swjp-mob-menu" data-testid="stHorizontalBlock">', unsafe_allow_html=True)
-        _rcols = st.columns(3)
-        for _ci, (_pi, _icon, _label) in enumerate(_row_items):
-            with _rcols[_ci]:
-                _is_active = (pidx == _pi)
-                # アクティブ時は赤背景
-                if _is_active:
-                    st.markdown(
-                        f'<style>'
-                        f'div[data-testid="stHorizontalBlock"] '
-                        f'div[data-testid="column"]:nth-child({_ci+1}) '
-                        f'div.stButton > button {{'
-                        f'background:#e63030!important;color:#fff!important;'
-                        f'border-color:#e63030!important;font-weight:700!important;}}'
-                        f'</style>',
-                        unsafe_allow_html=True,
-                    )
-                _btn_label = _icon + "\n" + _label
-                if st.button(_btn_label, key=f"mob_nav_{_pi}", use_container_width=True):
-                    st.session_state["current_page_idx"] = _pi
-                    st.session_state["current_page"] = PAGES[_pi]
-                    st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('<hr style="margin:6px 0 8px 0;border-color:#1a1e30;">', unsafe_allow_html=True)
 
 # =====================
 # テーマ一覧
