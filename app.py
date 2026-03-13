@@ -2471,18 +2471,25 @@ elif pidx == PAGE_MARKET_RANK:
                         volume_raw = int(df["Volume"].iloc[-1])
                         volume_str = f"{volume_raw:,}株"
                         rv = target_df["Volume"].mean()
+                        # 出来高増減：前半/後半比較
+                        half = max(len(target_df)//2, 1)
+                        rv_prev = target_df["Volume"].head(half).mean()
+                        vol_chg = round((rv - rv_prev) / rv_prev * 100, 1) if rv_prev > 0 else None
                         trade_val = int(rv * price)
                         # 証券コード（tickerから4桁を抽出）
                         code = ticker.split(".")[0] if "." in ticker else ticker
                         seg_results.append({
-                            "コード":   code,
-                            "銘柄名":   stock_name,
-                            "株価":     f"¥{price:,}",
-                            "前日比":   f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
-                            "騰落率":   change,
-                            "出来高":   volume_str,
-                            "売買代金": format_large_number(trade_val),
-                            "ticker":   ticker,
+                            "コード":          code,
+                            "銘柄名":          stock_name,
+                            "株価":            f"¥{price:,}",
+                            "前日比":          f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
+                            "騰落率":          change,
+                            "出来高":          volume_str,
+                            "売買代金":        format_large_number(trade_val),
+                            "出来高_raw":      volume_raw,
+                            "売買代金_raw":    trade_val,
+                            "出来高増減_val":  vol_chg,
+                            "ticker":          ticker,
                         })
                     except: pass
 
@@ -2574,55 +2581,40 @@ elif pidx == PAGE_MARKET_RANK:
                 st.markdown("**🔴 上位5 ／ 🟢 下位5**")
                 st.plotly_chart(_fig_m, use_container_width=True, config=PLOT_CONFIG)
 
-                # 上位5件テーブル（コード・出来高追加・列幅最適化）
-                st.markdown("**🔴 上位5銘柄**")
-                df_top5 = pd.DataFrame([{
-                    "コード":   r["コード"],
-                    "銘柄名":   r["銘柄名"],
-                    "株価":     r["株価"],
-                    "前日比":   r["前日比"],
-                    "騰落率":   f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
-                    "出来高":   r["出来高"],
-                    "売買代金": r["売買代金"],
-                } for r in top5])
-                st.dataframe(df_top5, use_container_width=False,
-                             column_config=_col_cfg_top5, hide_index=True)
+                # ── 構成銘柄の詳細表 ──
+                # 出来高・売買代金の順位を算出
+                _vol_sorted  = sorted(seg_results, key=lambda x: x["出来高_raw"],  reverse=True)
+                _tv_sorted   = sorted(seg_results, key=lambda x: x["売買代金_raw"], reverse=True)
+                _vol_rank_map = {r["コード"]: i+1 for i, r in enumerate(_vol_sorted)}
+                _tv_rank_map  = {r["コード"]: i+1 for i, r in enumerate(_tv_sorted)}
 
-                # 点線セパレーター
-                if bot5:
-                    st.markdown("""
-<div style="border-top: 1.5px dashed #555; margin: 10px 0 6px 0;
-            display:flex; align-items:center; gap:8px;">
-  <span style="font-size:11px; color:#888; white-space:nowrap; background:transparent;
-               padding: 0 6px;">▼ 下位5銘柄</span>
-  <div style="flex:1; border-top: 1.5px dashed #555;"></div>
-</div>""", unsafe_allow_html=True)
-                    df_bot5 = pd.DataFrame([{
-                        "コード":   r["コード"],
-                        "銘柄名":   r["銘柄名"],
-                        "株価":     r["株価"],
-                        "前日比":   r["前日比"],
-                        "騰落率":   f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
-                        "出来高":   r["出来高"],
-                        "売買代金": r["売買代金"],
-                    } for r in bot5])
-                    st.dataframe(df_bot5, use_container_width=False,
-                                 column_config=_col_cfg_top5, hide_index=True)
-
-                # 全件展開（デフォルト閉じる）
-                with st.expander("全{}銘柄を表示".format(n_seg), expanded=False):
-                    df_all_seg = pd.DataFrame([{
-                        "順位":     "{}位".format(i+1),
-                        "コード":   r["コード"],
-                        "銘柄名":   r["銘柄名"],
-                        "株価":     r["株価"],
-                        "前日比":   r["前日比"],
-                        "騰落率":   f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
-                        "出来高":   r["出来高"],
-                        "売買代金": r["売買代金"],
-                    } for i, r in enumerate(seg_results)])
-                    st.dataframe(df_all_seg, use_container_width=False,
-                                 column_config=_col_cfg_all, hide_index=True)
+                _col_cfg_detail = {
+                    "コード":       st.column_config.TextColumn("コード",       width=65),
+                    "銘柄名":       st.column_config.TextColumn("銘柄名",       width=150),
+                    "株価":         st.column_config.TextColumn("株価",         width=85),
+                    "騰落率":       st.column_config.TextColumn("騰落率",       width=105),
+                    "出来高増減":   st.column_config.TextColumn("出来高増減",   width=100),
+                    "出来高順位":   st.column_config.TextColumn("出来高順位",   width=90),
+                    "売買代金":     st.column_config.TextColumn("売買代金",     width=100),
+                    "売買代金順位": st.column_config.TextColumn("売買代金順位", width=100),
+                }
+                _detail_rows = []
+                for i, r in enumerate(seg_results):
+                    _vc = r.get("出来高増減_val", None)
+                    _detail_rows.append({
+                        "コード":       r["コード"],
+                        "銘柄名":       r["銘柄名"],
+                        "株価":         r["株価"],
+                        "騰落率":       f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                        "出来高増減":   f"📈 +{_vc}%" if _vc and _vc>0 else f"📉 {_vc}%" if _vc is not None else "N/A",
+                        "出来高順位":   f"{_vol_rank_map.get(r['コード'], '-')}位",
+                        "売買代金":     r["売買代金"],
+                        "売買代金順位": f"{_tv_rank_map.get(r['コード'], '-')}位",
+                    })
+                st.markdown("#### 📋 構成銘柄一覧")
+                df_detail_seg = pd.DataFrame(_detail_rows)
+                st.dataframe(df_detail_seg, use_container_width=False,
+                             column_config=_col_cfg_detail, hide_index=True)
 
 # =====================
 # 銘柄検索
@@ -2700,12 +2692,10 @@ elif pidx == PAGE_THEME_DETAIL:
     with st.spinner("データ取得中..."):
         td_results, td_details, _cache_time_td = fetch_all_theme_data(period, theme_keys)
 
-
-    # テーマ選択 (英語モード: 英語表示名→内部日本語キーの逆引き辞書を使う)
-    _en2jp_td = {r["テーマ"]: r["テーマ"] for r in td_results}
+    # テーマ選択
     theme_display_list = [r["テーマ"] for r in td_results]
     selected_theme_disp = st.selectbox("テーマを選択", theme_display_list, key="detail_theme_sel")
-    selected_theme = _en2jp_td.get(selected_theme_disp, selected_theme_disp)
+    selected_theme = selected_theme_disp
 
     result = next((r for r in td_results if r["テーマ"] == selected_theme), None)
     stocks_d = td_details.get(selected_theme, {})
@@ -2716,7 +2706,66 @@ elif pidx == PAGE_THEME_DETAIL:
         col_h1, col_h2, col_h3 = st.columns(3)
         col_h1.metric("平均騰落率", f"{'🔴 +' if c_val>0 else '🟢 '}{c_val}%")
         col_h2.metric("出来高増減(%)", f"{'📈 +' if v_val>0 else '📉 '}{v_val}%")
-        col_h3.metric("銘柄数", f"{len(stocks_d)}{"銘柄"}")
+        col_h3.metric("銘柄数", f"{len(stocks_d)}銘柄")
+
+        st.markdown("---")
+        st.markdown("#### 📋 構成銘柄一覧")
+
+        # 時価総額を並列取得（6時間キャッシュ済み関数を利用）
+        def _get_mktcap(stock_name, detail):
+            try:
+                fund = fetch_fundamentals(detail["ticker"])
+                return stock_name, fund.get("時価総額", "N/A")
+            except:
+                return stock_name, "N/A"
+
+        with st.spinner("時価総額を取得中..."):
+            mktcap_map = {}
+            with ThreadPoolExecutor(max_workers=10) as _ex:
+                _futs = {_ex.submit(_get_mktcap, sn, d): sn for sn, d in stocks_d.items()}
+                for _f in as_completed(_futs):
+                    _sn, _mc = _f.result()
+                    mktcap_map[_sn] = _mc
+
+        # 騰落率で降順ソート
+        sorted_stocks = sorted(stocks_d.items(), key=lambda x: x[1]["change"], reverse=True)
+
+        # テーブルデータ組み立て
+        _col_cfg = {
+            "コード":   st.column_config.TextColumn("コード",   width=70),
+            "銘柄名":   st.column_config.TextColumn("銘柄名",   width=150),
+            "株価":     st.column_config.TextColumn("株価",     width=90),
+            "騰落率":   st.column_config.TextColumn("騰落率",   width=110),
+            "前日比":   st.column_config.TextColumn("前日比",   width=105),
+            "出来高":   st.column_config.TextColumn("出来高",   width=100),
+            "時価総額": st.column_config.TextColumn("時価総額", width=110),
+        }
+        rows = []
+        for sn, d in sorted_stocks:
+            chg  = d["change"]
+            dc   = d.get("day_change")
+            code = d["ticker"].split(".")[0] if "." in d["ticker"] else d["ticker"]
+            rows.append({
+                "コード":   code,
+                "銘柄名":   sn,
+                "株価":     f"¥{int(d['price']):,}",
+                "騰落率":   f"🔴 +{chg}%" if chg > 0 else f"🟢 {chg}%",
+                "前日比":   f"🔴 +{dc}%"  if dc and dc > 0 else f"🟢 {dc}%" if dc else "N/A",
+                "出来高":   f"{int(d['volume']):,}株",
+                "時価総額": mktcap_map.get(sn, "N/A"),
+            })
+
+        df_detail = pd.DataFrame(rows)
+        st.dataframe(df_detail, use_container_width=False,
+                     column_config=_col_cfg, hide_index=True)
+
+        # CSVダウンロード
+        st.download_button(
+            "📥 CSVダウンロード",
+            df_detail.to_csv(index=False, encoding="utf-8-sig"),
+            f"theme_detail_{selected_theme}_{_get_now_str()}.csv",
+            "text/csv",
+        )
 
 # =====================
 # お知らせ
