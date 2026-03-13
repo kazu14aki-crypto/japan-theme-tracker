@@ -841,7 +841,9 @@ def get_all_themes():
     combined.update(st.session_state["custom_themes"])
     return combined
 
-PLOT_CONFIG = {"displayModeBar": False, "staticPlot": True}
+PLOT_CONFIG_PC     = {"displayModeBar": False, "staticPlot": True}
+PLOT_CONFIG_MOBILE = {"displayModeBar": False, "staticPlot": False,
+                      "scrollZoom": True, "doubleClick": "reset"}
 
 # 期間ボタン設定
 # 期間のyfinance値マッピング（言語に依存しない内部マスター）
@@ -1436,6 +1438,59 @@ PAGE_SETTINGS      = 13
 PAGE_DISCLAIMER    = 14
 
 pidx = st.session_state.get("current_page_idx", 0)
+
+# ── スマホ用：画面上部メニューボタンバー ──
+PLOT_CONFIG = PLOT_CONFIG_MOBILE if _is_mobile else PLOT_CONFIG_PC
+
+if _is_mobile:
+    # 主要ページだけ1行に並べる（アイコンのみ表示）
+    _MENU_SHORTCUTS = [
+        (0,  "📊"),   # テーマ一覧
+        (1,  "📡"),   # 騰落モメンタム
+        (2,  "💹"),   # 資金フロー
+        (3,  "📈"),   # 騰落推移
+        (4,  "🔥"),   # ヒートマップ
+        (5,  "📉"),   # テーマ比較
+        (7,  "📋"),   # 市場別ランキング
+        (8,  "🔍"),   # テーマ別詳細
+        (9,  "⭐"),   # お気に入り
+    ]
+    _mcols = st.columns(len(_MENU_SHORTCUTS))
+    for _ci, (_pi, _icon) in enumerate(_MENU_SHORTCUTS):
+        with _mcols[_ci]:
+            _is_active = (pidx == _pi)
+            _btn_style = (
+                "background:#e63030;color:#fff;border:1px solid #e63030;"
+                if _is_active else
+                "background:#1a1e30;color:#ccc;border:1px solid #2a2e40;"
+            )
+            if st.button(_icon, key=f"mob_nav_{_pi}", use_container_width=True):
+                st.session_state["current_page_idx"] = _pi
+                st.session_state["current_page"] = PAGES[_pi]
+                st.rerun()
+    st.markdown(
+        '<style>'
+        'div[data-testid="stHorizontalBlock"] > div[data-testid="column"] > div > div > div > button {'
+        '  font-size:18px !important; padding:4px 0 !important; min-height:38px !important;'
+        '  background:#1a1e30!important; border:1px solid #2a2e40!important; color:#ccc!important;'
+        '  border-radius:6px!important;'
+        '}'
+        '</style>',
+        unsafe_allow_html=True,
+    )
+    # アクティブボタンを赤くする
+    _active_col_idx = next((i for i, (_pi, _) in enumerate(_MENU_SHORTCUTS) if _pi == pidx), None)
+    if _active_col_idx is not None:
+        st.markdown(
+            f'<style>'
+            f'div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child({_active_col_idx+1})'
+            f' > div > div > div > button {{'
+            f'  background:#e63030!important; color:#fff!important; border-color:#e63030!important;'
+            f'}}'
+            f'</style>',
+            unsafe_allow_html=True,
+        )
+    st.markdown('<hr style="margin:4px 0 6px 0;border-color:#1a1e30;">', unsafe_allow_html=True)
 
 # =====================
 # テーマ一覧
