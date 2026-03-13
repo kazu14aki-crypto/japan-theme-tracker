@@ -1485,28 +1485,55 @@ if pidx == PAGE_THEME_LIST:
 
     # 上昇・下落グラフを横並び
     _col_top, _col_bot = st.columns(2)
-    top_labels = [r["テーマ"] for r in top_results]
-    top_ranks  = [f"{i+1}" for i in range(len(top_results))]
+    import plotly.graph_objects as _go_top
+
+    def _make_top_vbar(labels, values, colors, height):
+        """騰落率TOP用縦棒グラフ"""
+        fig = _go_top.Figure(_go_top.Bar(
+            x=labels, y=values,
+            marker_color=colors,
+            text=[f"{v:+.2f}%" for v in values],
+            textposition="outside",
+            textfont=dict(color="white", size=9),
+            cliponaxis=False,
+        ))
+        fig.add_hline(y=0, line_color="#555555", line_width=1)
+        fig.update_layout(
+            height=height,
+            margin=dict(t=20, b=90, l=20, r=20),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white", size=10),
+            xaxis=dict(tickfont=dict(size=9), tickangle=-35),
+            yaxis=dict(
+                ticksuffix="%", tickfont=dict(size=9),
+                zeroline=True, zerolinecolor="#555", zerolinewidth=1,
+            ),
+            bargap=0.22,
+        )
+        return fig
+
+    top_labels = [f"{i+1}位 {r['テーマ']}" for i, r in enumerate(top_results)]
     top_values = [r["平均騰落率(%)"] for r in top_results]
     top_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in top_values]
-    chart_h = max(200, len(top_results) * 38)
+    chart_h = max(260, len(top_results) * 36)
+
     with _col_top:
         st.markdown(f'<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🔴 上昇テーマ TOP{n}</p>', unsafe_allow_html=True)
         st.plotly_chart(
-            make_bar_chart(top_labels, top_values, top_colors, height=chart_h, rank_labels=top_ranks),
+            _make_top_vbar(top_labels, top_values, top_colors, chart_h),
             use_container_width=True, config=PLOT_CONFIG
         )
     if bot_results and display_count < 99:
         total = len(theme_results)
-        bot_labels = [r["テーマ"] for r in bot_results]
-        bot_ranks  = [f"{total-n+i+1}" for i in range(len(bot_results))]
+        bot_labels = [f"{total-n+i+1}位 {r['テーマ']}" for i, r in enumerate(bot_results)]
         bot_values = [r["平均騰落率(%)"] for r in bot_results]
         bot_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in bot_values]
-        chart_h2 = max(200, len(bot_results) * 38)
+        chart_h2 = max(260, len(bot_results) * 36)
         with _col_bot:
             st.markdown(f'<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🟢 下落テーマ TOP{n}</p>', unsafe_allow_html=True)
             st.plotly_chart(
-                make_bar_chart(bot_labels, bot_values, bot_colors, height=chart_h2, rank_labels=bot_ranks),
+                _make_top_vbar(bot_labels, bot_values, bot_colors, chart_h2),
                 use_container_width=True, config=PLOT_CONFIG
             )
 
@@ -1613,29 +1640,56 @@ if pidx == PAGE_THEME_LIST:
     st.plotly_chart(_fig_all, use_container_width=True, config=PLOT_CONFIG)
 
     # ════════════════════════════════════
-    # ④ 全テーマ 出来高・売買代金ランキンググラフ（縦棒）
+    # ④ 全テーマ 出来高・売買代金ランキンググラフ（縦棒・縦積み）
     # ════════════════════════════════════
     st.markdown("#### 💹 全テーマ 出来高・売買代金ランキング")
-    _col_allv, _col_allt = st.columns(2)
 
-    with _col_allv:
-        st.markdown('<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🔢 出来高（全テーマ）</p>', unsafe_allow_html=True)
-        _av_labels = [f"{i+1}位 {r['テーマ']}" for i, r in enumerate(vol_sorted_all)]
-        _av_values = [r["合計出来高"] for r in vol_sorted_all]
-        st.plotly_chart(
-            make_vertical_bar(_av_labels, _av_values, "", "#4a90d9",
-                              lambda v: f"{int(v/1e6):.0f}M" if v >= 1e6 else f"{int(v):,}"),
-            use_container_width=True, config=PLOT_CONFIG
+    import plotly.graph_objects as _go_full
+
+    def _make_full_vbar(labels, values, color, fmt_fn, h):
+        """全テーマ用縦棒グラフ（幅フル使用）"""
+        fig = _go_full.Figure(_go_full.Bar(
+            x=labels, y=values,
+            marker_color=color,
+            text=[fmt_fn(v) for v in values],
+            textposition="outside",
+            textfont=dict(color="white", size=9),
+            cliponaxis=False,
+        ))
+        fig.update_layout(
+            height=h,
+            margin=dict(t=20, b=100, l=20, r=20),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white", size=10),
+            xaxis=dict(tickfont=dict(size=8), tickangle=-40),
+            yaxis=dict(showticklabels=False, showgrid=False),
+            bargap=0.18,
         )
-    with _col_allt:
-        st.markdown('<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">💴 売買代金（全テーマ）</p>', unsafe_allow_html=True)
-        _at_labels = [f"{i+1}位 {r['テーマ']}" for i, r in enumerate(tv_sorted_all)]
-        _at_values = [r["合計売買代金"] for r in tv_sorted_all]
-        st.plotly_chart(
-            make_vertical_bar(_at_labels, _at_values, "", "#e8963a",
-                              lambda v: format_large_number(v)),
-            use_container_width=True, config=PLOT_CONFIG
-        )
+        return fig
+
+    _n_all = len(vol_sorted_all)
+    _full_h = max(360, _n_all * 16)  # テーマ数に応じて高さを調整
+
+    # 出来高（上段）
+    st.markdown('<p style="font-size:12px;font-weight:700;margin:8px 0 2px;">🔢 出来高ランキング（全テーマ）</p>', unsafe_allow_html=True)
+    _av_labels = [f"{i+1}位 {r['テーマ']}" for i, r in enumerate(vol_sorted_all)]
+    _av_values = [r["合計出来高"] for r in vol_sorted_all]
+    st.plotly_chart(
+        _make_full_vbar(_av_labels, _av_values, "#4a90d9",
+                        lambda v: f"{int(v/1e6):.0f}M" if v >= 1e6 else f"{int(v):,}", _full_h),
+        use_container_width=True, config=PLOT_CONFIG
+    )
+
+    # 売買代金（下段）
+    st.markdown('<p style="font-size:12px;font-weight:700;margin:8px 0 2px;">💴 売買代金ランキング（全テーマ）</p>', unsafe_allow_html=True)
+    _at_labels = [f"{i+1}位 {r['テーマ']}" for i, r in enumerate(tv_sorted_all)]
+    _at_values = [r["合計売買代金"] for r in tv_sorted_all]
+    st.plotly_chart(
+        _make_full_vbar(_at_labels, _at_values, "#e8963a",
+                        lambda v: format_large_number(v), _full_h),
+        use_container_width=True, config=PLOT_CONFIG
+    )
 
     # ════════════════════════════════════
     # ⑤ 全テーマ 数値一覧表
