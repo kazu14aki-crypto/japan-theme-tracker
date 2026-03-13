@@ -476,11 +476,6 @@ footer {{ display: none !important; }}
 button[title="View fullscreen"] {{ display: none !important; }}
 [data-testid="stToolbarActions"] {{ display: none !important; }}
 header[data-testid="stHeader"] a {{ display: none !important; }}
-
-/* ── スマホ：Streamlitヘッダー自体を非表示にしてすっきりさせる ── */
-@media (max-width: 640px) {{
-    header[data-testid="stHeader"] {{ display: none !important; }}
-}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -3307,13 +3302,48 @@ elif pidx == PAGE_DISCLAIMER:
 
 
 # ── メインエリア フッター（全ページ共通・分岐の外側） ──
-st.markdown("---")
-st.markdown(
-    "<div style='text-align:center;font-size:11px;color:#8090a8;padding:6px 0 4px;'>"
-    "© 2025 StockWaveJP — "
-    "<a href='https://stockwavejp.com' style='color:#556080;text-decoration:none;' "
-    "target='_blank'>stockwavejp.com</a>"
-    " — 投資助言ではありません"
-    "</div>",
-    unsafe_allow_html=True
-)
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("""
+<div style="
+    border-top: 1px solid #1a1e30;
+    margin-top: 24px;
+    padding: 28px 0 18px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+">
+  <!-- SVGロゴ + テキストロゴ横並び -->
+  <div style="display:flex;align-items:center;gap:12px;">
+    <svg width="44" height="44" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="28" y1="4"  x2="28" y2="10" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="42" y1="9"  x2="38" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="14" y1="9"  x2="18" y2="14" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="50" y1="21" x2="45" y2="23" stroke="#e63030" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="6"  y1="21" x2="11" y2="23" stroke="#e63030" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M11,31 A17,17 0 0,1 45,31" fill="none" stroke="#e63030" stroke-width="2.5"/>
+      <circle cx="28" cy="31" r="5.5" fill="#e63030"/>
+      <line x1="3"  y1="31" x2="11" y2="31" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="45" y1="31" x2="53" y2="31" stroke="#e63030" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M3,43 Q9,36 15,43 Q21,50 27,43 Q33,36 39,43 Q45,50 51,43 Q54,36 53,43"
+        stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div style="line-height:1.1;">
+      <div style="display:flex;align-items:baseline;gap:0;">
+        <span style="font-family:'Arial Black',sans-serif;font-size:22px;font-weight:900;color:#e63030;letter-spacing:0.03em;">Stock</span>
+        <span style="font-family:'Arial Black',sans-serif;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:0.03em;">Wave</span>
+        <span style="font-family:'Arial Black',sans-serif;font-size:13px;font-weight:900;color:#e63030;margin-left:3px;letter-spacing:0.1em;">JP</span>
+      </div>
+      <div style="font-size:9px;letter-spacing:0.45em;color:#3a4560;font-weight:700;margin-top:2px;">株　式　波　動</div>
+    </div>
+  </div>
+  <!-- キャッチコピー -->
+  <div style="font-size:12px;color:#4a5570;letter-spacing:0.08em;">日本株テーマ投資の羅針盤</div>
+  <!-- リンク＋著作権 -->
+  <div style="font-size:11px;color:#3a4560;text-align:center;line-height:1.8;">
+    <a href="https://stockwavejp.com" style="color:#556080;text-decoration:none;" target="_blank">stockwavejp.com</a>
+    　&nbsp;|&nbsp;　投資助言ではありません
+    <br>© 2026 StockWaveJP. All rights reserved.
+  </div>
+</div>
+""", unsafe_allow_html=True)
