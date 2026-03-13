@@ -2582,34 +2582,51 @@ elif pidx == PAGE_MARKET_RANK:
                 st.plotly_chart(_fig_m, use_container_width=True, config=PLOT_CONFIG)
 
                 # ── 構成銘柄の詳細表 ──
-                # 出来高・売買代金の順位を算出
+                # 各種順位・寄与度を算出
                 _vol_sorted  = sorted(seg_results, key=lambda x: x["出来高_raw"],  reverse=True)
                 _tv_sorted   = sorted(seg_results, key=lambda x: x["売買代金_raw"], reverse=True)
-                _vol_rank_map = {r["コード"]: i+1 for i, r in enumerate(_vol_sorted)}
-                _tv_rank_map  = {r["コード"]: i+1 for i, r in enumerate(_tv_sorted)}
+                _chg_sorted  = sorted(seg_results, key=lambda x: x["騰落率"], reverse=True)
+                _vol_rank_map  = {r["コード"]: i+1 for i, r in enumerate(_vol_sorted)}
+                _tv_rank_map   = {r["コード"]: i+1 for i, r in enumerate(_tv_sorted)}
+                _chg_rank_map  = {r["コード"]: i+1 for i, r in enumerate(_chg_sorted)}
+                # 寄与度 = 個別騰落率 / 全銘柄騰落率の絶対値合計 × 100
+                _abs_sum = sum(abs(r["騰落率"]) for r in seg_results) or 1
+                _contrib_map = {r["コード"]: round(r["騰落率"] / _abs_sum * 100, 2) for r in seg_results}
+                _contrib_sorted = sorted(seg_results, key=lambda x: _contrib_map[x["コード"]], reverse=True)
+                _contrib_rank_map = {r["コード"]: i+1 for i, r in enumerate(_contrib_sorted)}
 
                 _col_cfg_detail = {
+                    "騰落率順位":   st.column_config.TextColumn("騰落率順位",   width=85),
                     "コード":       st.column_config.TextColumn("コード",       width=65),
-                    "銘柄名":       st.column_config.TextColumn("銘柄名",       width=150),
+                    "銘柄名":       st.column_config.TextColumn("銘柄名",       width=145),
                     "株価":         st.column_config.TextColumn("株価",         width=85),
-                    "騰落率":       st.column_config.TextColumn("騰落率",       width=105),
+                    "騰落率":       st.column_config.TextColumn("騰落率",       width=100),
+                    "寄与度":       st.column_config.TextColumn("寄与度",       width=90),
+                    "寄与度順位":   st.column_config.TextColumn("寄与度順位",   width=85),
                     "出来高増減":   st.column_config.TextColumn("出来高増減",   width=100),
-                    "出来高順位":   st.column_config.TextColumn("出来高順位",   width=90),
+                    "出来高":       st.column_config.TextColumn("出来高",       width=100),
+                    "出来高順位":   st.column_config.TextColumn("出来高順位",   width=85),
                     "売買代金":     st.column_config.TextColumn("売買代金",     width=100),
                     "売買代金順位": st.column_config.TextColumn("売買代金順位", width=100),
                 }
                 _detail_rows = []
-                for i, r in enumerate(seg_results):
-                    _vc = r.get("出来高増減_val", None)
+                for r in seg_results:  # 騰落率降順のまま
+                    _vc  = r.get("出来高増減_val", None)
+                    _cod = r["コード"]
+                    _ctb = _contrib_map[_cod]
                     _detail_rows.append({
-                        "コード":       r["コード"],
+                        "騰落率順位":   f"{_chg_rank_map[_cod]}位",
+                        "コード":       _cod,
                         "銘柄名":       r["銘柄名"],
                         "株価":         r["株価"],
                         "騰落率":       f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                        "寄与度":       f"{'▲' if _ctb>0 else '▼'}{abs(_ctb):.2f}%",
+                        "寄与度順位":   f"{_contrib_rank_map[_cod]}位",
                         "出来高増減":   f"📈 +{_vc}%" if _vc and _vc>0 else f"📉 {_vc}%" if _vc is not None else "N/A",
-                        "出来高順位":   f"{_vol_rank_map.get(r['コード'], '-')}位",
+                        "出来高":       r["出来高"],
+                        "出来高順位":   f"{_vol_rank_map[_cod]}位",
                         "売買代金":     r["売買代金"],
-                        "売買代金順位": f"{_tv_rank_map.get(r['コード'], '-')}位",
+                        "売買代金順位": f"{_tv_rank_map[_cod]}位",
                     })
                 st.markdown("#### 📋 構成銘柄一覧")
                 df_detail_seg = pd.DataFrame(_detail_rows)
@@ -2730,29 +2747,53 @@ elif pidx == PAGE_THEME_DETAIL:
         # 騰落率で降順ソート
         sorted_stocks = sorted(stocks_d.items(), key=lambda x: x[1]["change"], reverse=True)
 
+        # 各種順位・寄与度を算出
+        _abs_sum_th = sum(abs(d["change"]) for _, d in sorted_stocks) or 1
+        _contrib_th  = {sn: round(d["change"] / _abs_sum_th * 100, 2) for sn, d in sorted_stocks}
+        _vol_rank_th = {sn: i+1 for i, (sn, _) in enumerate(
+            sorted(sorted_stocks, key=lambda x: x[1]["volume"], reverse=True))}
+        _tv_rank_th  = {sn: i+1 for i, (sn, _) in enumerate(
+            sorted(sorted_stocks, key=lambda x: x[1]["trade_value"], reverse=True))}
+        _chg_rank_th = {sn: i+1 for i, (sn, _) in enumerate(sorted_stocks)}
+        _contrib_rank_th = {sn: i+1 for i, (sn, _) in enumerate(
+            sorted(sorted_stocks, key=lambda x: _contrib_th[x[0]], reverse=True))}
+
         # テーブルデータ組み立て
         _col_cfg = {
-            "コード":   st.column_config.TextColumn("コード",   width=70),
-            "銘柄名":   st.column_config.TextColumn("銘柄名",   width=150),
-            "株価":     st.column_config.TextColumn("株価",     width=90),
-            "騰落率":   st.column_config.TextColumn("騰落率",   width=110),
-            "前日比":   st.column_config.TextColumn("前日比",   width=105),
-            "出来高":   st.column_config.TextColumn("出来高",   width=100),
-            "時価総額": st.column_config.TextColumn("時価総額", width=110),
+            "騰落率順位":   st.column_config.TextColumn("騰落率順位",   width=85),
+            "コード":       st.column_config.TextColumn("コード",       width=65),
+            "銘柄名":       st.column_config.TextColumn("銘柄名",       width=145),
+            "株価":         st.column_config.TextColumn("株価",         width=85),
+            "騰落率":       st.column_config.TextColumn("騰落率",       width=100),
+            "寄与度":       st.column_config.TextColumn("寄与度",       width=90),
+            "寄与度順位":   st.column_config.TextColumn("寄与度順位",   width=85),
+            "前日比":       st.column_config.TextColumn("前日比",       width=100),
+            "出来高":       st.column_config.TextColumn("出来高",       width=100),
+            "出来高順位":   st.column_config.TextColumn("出来高順位",   width=85),
+            "売買代金":     st.column_config.TextColumn("売買代金",     width=100),
+            "売買代金順位": st.column_config.TextColumn("売買代金順位", width=100),
+            "時価総額":     st.column_config.TextColumn("時価総額",     width=110),
         }
         rows = []
         for sn, d in sorted_stocks:
             chg  = d["change"]
             dc   = d.get("day_change")
             code = d["ticker"].split(".")[0] if "." in d["ticker"] else d["ticker"]
+            _ctb = _contrib_th[sn]
             rows.append({
-                "コード":   code,
-                "銘柄名":   sn,
-                "株価":     f"¥{int(d['price']):,}",
-                "騰落率":   f"🔴 +{chg}%" if chg > 0 else f"🟢 {chg}%",
-                "前日比":   f"🔴 +{dc}%"  if dc and dc > 0 else f"🟢 {dc}%" if dc else "N/A",
-                "出来高":   f"{int(d['volume']):,}株",
-                "時価総額": mktcap_map.get(sn, "N/A"),
+                "騰落率順位":   f"{_chg_rank_th[sn]}位",
+                "コード":       code,
+                "銘柄名":       sn,
+                "株価":         f"¥{int(d['price']):,}",
+                "騰落率":       f"🔴 +{chg}%" if chg > 0 else f"🟢 {chg}%",
+                "寄与度":       f"{'▲' if _ctb>0 else '▼'}{abs(_ctb):.2f}%",
+                "寄与度順位":   f"{_contrib_rank_th[sn]}位",
+                "前日比":       f"🔴 +{dc}%" if dc and dc > 0 else f"🟢 {dc}%" if dc else "N/A",
+                "出来高":       f"{int(d['volume']):,}株",
+                "出来高順位":   f"{_vol_rank_th[sn]}位",
+                "売買代金":     format_large_number(d["trade_value"]),
+                "売買代金順位": f"{_tv_rank_th[sn]}位",
+                "時価総額":     mktcap_map.get(sn, "N/A"),
             })
 
         df_detail = pd.DataFrame(rows)
