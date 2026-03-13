@@ -1534,8 +1534,8 @@ if pidx == PAGE_THEME_LIST:
             cliponaxis=False,
         ))
         fig.update_layout(
-            height=280,
-            margin=dict(t=30, b=60, l=20, r=20),
+            height=340,
+            margin=dict(t=30, b=80, l=20, r=20),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="white", size=10),
@@ -1575,15 +1575,42 @@ if pidx == PAGE_THEME_LIST:
     # ③ 全テーマ騰落率ランキング（横棒グラフ）
     # ════════════════════════════════════
     st.markdown("#### 📊 全テーマ 騰落率ランキング")
-    all_labels = [r["テーマ"] for r in theme_results]
-    all_ranks  = [f"{i+1}" for i in range(len(theme_results))]
+    all_labels = [f"{i+1}位 {r['テーマ']}" for i, r in enumerate(theme_results)]
     all_values = [r["平均騰落率(%)"] for r in theme_results]
     all_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in all_values]
-    all_h = max(300, len(theme_results) * 28)
-    st.plotly_chart(
-        make_bar_chart(all_labels, all_values, all_colors, height=all_h, rank_labels=all_ranks),
-        use_container_width=True, config=PLOT_CONFIG
+
+    import plotly.graph_objects as _go_all
+    _fig_all = _go_all.Figure(_go_all.Bar(
+        x=all_labels,
+        y=all_values,
+        marker_color=all_colors,
+        text=[f"{v:+.2f}%" for v in all_values],
+        textposition="outside",
+        textfont=dict(color="white", size=9),
+        cliponaxis=False,
+    ))
+    # 0ラインの参照線
+    _fig_all.add_hline(y=0, line_color="#555555", line_width=1)
+    _fig_all.update_layout(
+        height=max(340, len(theme_results) * 18),
+        margin=dict(t=20, b=100, l=20, r=20),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="white", size=10),
+        xaxis=dict(
+            tickfont=dict(size=8),
+            tickangle=-40,
+        ),
+        yaxis=dict(
+            title="騰落率（%）",
+            ticksuffix="%",
+            tickfont=dict(size=9),
+            title_font=dict(size=10),
+            zeroline=True, zerolinecolor="#555", zerolinewidth=1,
+        ),
+        bargap=0.18,
     )
+    st.plotly_chart(_fig_all, use_container_width=True, config=PLOT_CONFIG)
 
     # ════════════════════════════════════
     # ④ 全テーマ 出来高・売買代金ランキンググラフ（縦棒）
