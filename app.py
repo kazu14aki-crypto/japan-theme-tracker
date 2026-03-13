@@ -1098,8 +1098,8 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
     # rank_labelsがある場合は「XX位  」の幅（最大5文字程度）を加算
     max_label_len = max(len(str(l)) for l in labels)
     rank_prefix_len = 5 if rank_labels else 0  # 「10位  」≒5文字分
-    lm = left_margin if left_margin else max(140, (max_label_len + rank_prefix_len) * 11 + 20)
-    lm = min(lm, 280)
+    lm = left_margin if left_margin else max(110, (max_label_len + rank_prefix_len) * 9 + 15)
+    lm = min(lm, 220)
 
     min_v = min(values)
     max_v = max(values)
@@ -1112,7 +1112,7 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
         marker_color=colors,
         text=[f" {v:+.2f}%" for v in values],
         textposition=text_positions,
-        textfont=dict(color="white", size=11),
+        textfont=dict(color="white", size=10),
         insidetextanchor="middle",
         cliponaxis=False,
     ))
@@ -1492,27 +1492,35 @@ if pidx == PAGE_THEME_LIST:
     top_results = theme_results[:n]
     bot_results = theme_results[-n:] if display_count < 99 else []
 
-    # === 上位テーマランキング ===
-    st.markdown(f'<p style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:8px 0 4px;">{"🔴 上昇テーマ TOP"} TOP{n}</p>', unsafe_allow_html=True)
+    # === 上昇・下落テーマを横並びで表示 ===
+    _col_top, _col_bot = st.columns(2)
+
     top_labels = [r["テーマ"] for r in top_results]
     top_ranks  = [f"{i+1}" for i in range(len(top_results))]
     top_values = [r["平均騰落率(%)"] for r in top_results]
     top_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in top_values]
-    chart_h = max(200, len(top_results) * 34)
-    st.plotly_chart(make_bar_chart(top_labels, top_values, top_colors, height=chart_h, rank_labels=top_ranks),
-                    use_container_width=True, config=PLOT_CONFIG)
+    chart_h = max(160, len(top_results) * 28)
 
-    # === 下位テーマランキング ===
+    with _col_top:
+        st.markdown(f'<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🔴 上昇テーマ TOP{n}</p>', unsafe_allow_html=True)
+        st.plotly_chart(
+            make_bar_chart(top_labels, top_values, top_colors, height=chart_h, rank_labels=top_ranks),
+            use_container_width=True, config=PLOT_CONFIG
+        )
+
     if bot_results and display_count < 99:
-        st.markdown(f'<p style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:8px 0 4px;">{"🟢 下落テーマ TOP"} TOP{n}</p>', unsafe_allow_html=True)
         total = len(theme_results)
         bot_labels = [r["テーマ"] for r in bot_results]
         bot_ranks  = [f"{total-n+i+1}" for i in range(len(bot_results))]
         bot_values = [r["平均騰落率(%)"] for r in bot_results]
         bot_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in bot_values]
-        chart_h2 = max(200, len(bot_results) * 34)
-        st.plotly_chart(make_bar_chart(bot_labels, bot_values, bot_colors, height=chart_h2, rank_labels=bot_ranks),
-                        use_container_width=True, config=PLOT_CONFIG)
+        chart_h2 = max(160, len(bot_results) * 28)
+        with _col_bot:
+            st.markdown(f'<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🟢 下落テーマ TOP{n}</p>', unsafe_allow_html=True)
+            st.plotly_chart(
+                make_bar_chart(bot_labels, bot_values, bot_colors, height=chart_h2, rank_labels=bot_ranks),
+                use_container_width=True, config=PLOT_CONFIG
+            )
 
     # === テーマ別出来高・売買代金ランキング ===
     st.subheader("📊 テーマ別ランキング")
