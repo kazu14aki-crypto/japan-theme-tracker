@@ -468,51 +468,18 @@ hr {{
     }}
 }}
 
-/* ── ツールバー・デプロイボタン・フッター等を非表示 ── */
-/* サイドバー開閉ボタン(baseButton-header)は残し、それ以外を非表示 */
+/* ── ツールバー・フッター等を非表示 ── */
 [data-testid="stDecoration"] {{ display: none !important; }}
 [data-testid="stDeployButton"] {{ display: none !important; }}
 #MainMenu {{ display: none !important; }}
 footer {{ display: none !important; }}
 button[title="View fullscreen"] {{ display: none !important; }}
-/* Share・スター・編集ボタン等を非表示（サイドバー開閉ボタンは除外） */
 [data-testid="stToolbarActions"] {{ display: none !important; }}
 header[data-testid="stHeader"] a {{ display: none !important; }}
-header[data-testid="stHeader"] [data-testid="stActionButton"] {{ display: none !important; }}
-/* stToolbar内でbaseButton-header以外を非表示 */
-[data-testid="stToolbar"] button:not([data-testid="baseButton-header"]) {{
-    display: none !important;
-}}
 
-/* ── スマホ：サイドバー開閉ボタンを大きく目立たせる ── */
+/* ── スマホ：Streamlitヘッダー自体を非表示にしてすっきりさせる ── */
 @media (max-width: 640px) {{
-    /* 正確なdata-testid: baseButton-header（ヘッダー内のボタン） */
-    button[data-testid="baseButton-header"] {{
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        width: 44px !important;
-        height: 44px !important;
-        min-height: 44px !important;
-        background: #e63030 !important;
-        border-radius: 8px !important;
-        border: none !important;
-        padding: 0 !important;
-        cursor: pointer !important;
-        position: relative !important;
-        z-index: 9999 !important;
-    }}
-    button[data-testid="baseButton-header"] svg {{
-        width: 22px !important;
-        height: 22px !important;
-        fill: #ffffff !important;
-        stroke: #ffffff !important;
-        color: #ffffff !important;
-    }}
-    /* ヘッダー右端に「メニュー」ラベルを追加（ボタンの左隣） */
-    header[data-testid="stHeader"] {{
-        overflow: visible !important;
-    }}
+    header[data-testid="stHeader"] {{ display: none !important; }}
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -1473,6 +1440,79 @@ pidx = st.session_state.get("current_page_idx", 0)
 # ── PLOT_CONFIG切り替え（スマホ：ピンチ拡大対応）──
 PLOT_CONFIG = PLOT_CONFIG_MOBILE if _is_mobile else PLOT_CONFIG_PC
 
+# ══════════════════════════════════════════════════════
+# スマホ用メニューバー
+# Streamlit標準のst.buttonで実装（CSS依存なし・確実に動作）
+# ══════════════════════════════════════════════════════
+if _is_mobile:
+    # session_stateでメニュー開閉状態を管理
+    if "mob_menu_open" not in st.session_state:
+        st.session_state["mob_menu_open"] = False
+
+    # ── メニュー開閉ボタン（常時表示）──
+    st.markdown("""
+<style>
+/* スマホメニューバー全体 */
+.swjp-topbar { display: flex; align-items: center; justify-content: space-between;
+    background: #0d1020; border-bottom: 1px solid #1a1e30;
+    padding: 4px 8px; margin: -1rem -1rem 0.5rem -1rem; }
+/* メニュートグルボタン */
+div[data-testid="stHorizontalBlock"]:has(> div > div > div > button[key="mob_menu_toggle"])
+    button { background: #e63030 !important; color: #fff !important;
+    border: none !important; font-size: 15px !important; font-weight: 700 !important;
+    padding: 6px 14px !important; border-radius: 6px !important;
+    min-height: 36px !important; }
+/* メニューリストのボタン */
+div.swjp-menu-list div.stButton > button {
+    background: #141828 !important; color: #cccccc !important;
+    border: 1px solid #2a2e40 !important; border-radius: 6px !important;
+    font-size: 13px !important; text-align: left !important;
+    padding: 8px 12px !important; min-height: 40px !important;
+    margin-bottom: 2px !important; }
+div.swjp-menu-list div.stButton > button:hover {
+    background: #1e2438 !important; color: #fff !important; }
+</style>
+""", unsafe_allow_html=True)
+
+    _current_page_label = PAGES[pidx] if pidx < len(PAGES) else PAGES[0]
+    _menu_open = st.session_state["mob_menu_open"]
+
+    # トップバー：現在ページ名 ＋ メニューボタン
+    _top_c1, _top_c2 = st.columns([5, 2])
+    with _top_c1:
+        st.markdown(
+            f'<div style="font-size:13px;font-weight:700;color:#e8eaf0;'
+            f'padding:6px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+            f'{_current_page_label}</div>',
+            unsafe_allow_html=True
+        )
+    with _top_c2:
+        _btn_text = "✕ 閉じる" if _menu_open else "☰ メニュー"
+        if st.button(_btn_text, key="mob_menu_toggle", use_container_width=True):
+            st.session_state["mob_menu_open"] = not _menu_open
+            st.rerun()
+
+    # メニューリスト（開いているときだけ表示）
+    if st.session_state["mob_menu_open"]:
+        st.markdown('<div class="swjp-menu-list">', unsafe_allow_html=True)
+        for _mi, _mp in enumerate(PAGES):
+            _is_cur = (_mi == pidx)
+            # アクティブページは強調
+            if _is_cur:
+                st.markdown(
+                    f'<div style="background:#e63030;color:#fff;border-radius:6px;'
+                    f'padding:8px 12px;font-size:13px;font-weight:700;margin-bottom:2px;">'
+                    f'{_mp} ◀ 現在</div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                if st.button(_mp, key=f"mob_page_{_mi}", use_container_width=True):
+                    st.session_state["current_page_idx"] = _mi
+                    st.session_state["current_page"] = _mp
+                    st.session_state["mob_menu_open"] = False
+                    st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<hr style="margin:4px 0 8px 0;border-color:#1a1e30;">', unsafe_allow_html=True)
 
 # =====================
 # テーマ一覧
