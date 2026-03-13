@@ -1493,19 +1493,19 @@ if pidx == PAGE_THEME_LIST:
             marker_color=colors,
             text=[f"{v:+.2f}%" for v in values],
             textposition="outside",
-            textfont=dict(color="white", size=9),
+            textfont=dict(color="white", size=11),
             cliponaxis=False,
         ))
         fig.add_hline(y=0, line_color="#555555", line_width=1)
         fig.update_layout(
             height=height,
-            margin=dict(t=20, b=90, l=20, r=20),
+            margin=dict(t=20, b=100, l=20, r=20),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white", size=10),
-            xaxis=dict(tickfont=dict(size=9), tickangle=-35),
+            font=dict(color="white", size=11),
+            xaxis=dict(tickfont=dict(size=11), tickangle=-35),
             yaxis=dict(
-                ticksuffix="%", tickfont=dict(size=9),
+                ticksuffix="%", tickfont=dict(size=11),
                 zeroline=True, zerolinecolor="#555", zerolinewidth=1,
             ),
             bargap=0.22,
@@ -1556,17 +1556,17 @@ if pidx == PAGE_THEME_LIST:
             marker_color=color,
             text=[value_fmt_fn(v) for v in values],
             textposition="outside",
-            textfont=dict(color="white", size=10),
+            textfont=dict(color="white", size=11),
             cliponaxis=False,
         ))
         fig.update_layout(
-            height=340,
-            margin=dict(t=30, b=80, l=20, r=20),
+            height=360,
+            margin=dict(t=30, b=100, l=20, r=20),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white", size=10),
+            font=dict(color="white", size=11),
             xaxis=dict(
-                tickfont=dict(size=9),
+                tickfont=dict(size=11),
                 tickangle=-30,
             ),
             yaxis=dict(
@@ -1612,26 +1612,26 @@ if pidx == PAGE_THEME_LIST:
         marker_color=all_colors,
         text=[f"{v:+.2f}%" for v in all_values],
         textposition="outside",
-        textfont=dict(color="white", size=9),
+        textfont=dict(color="white", size=11),
         cliponaxis=False,
     ))
     # 0ラインの参照線
     _fig_all.add_hline(y=0, line_color="#555555", line_width=1)
     _fig_all.update_layout(
-        height=max(340, len(theme_results) * 18),
-        margin=dict(t=20, b=100, l=20, r=20),
+        height=max(380, len(theme_results) * 20),
+        margin=dict(t=20, b=110, l=20, r=20),
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white", size=10),
+        font=dict(color="white", size=11),
         xaxis=dict(
-            tickfont=dict(size=8),
+            tickfont=dict(size=11),
             tickangle=-40,
         ),
         yaxis=dict(
             title="騰落率（%）",
             ticksuffix="%",
-            tickfont=dict(size=9),
-            title_font=dict(size=10),
+            tickfont=dict(size=11),
+            title_font=dict(size=11),
             zeroline=True, zerolinecolor="#555", zerolinewidth=1,
         ),
         bargap=0.18,
@@ -1652,16 +1652,16 @@ if pidx == PAGE_THEME_LIST:
             marker_color=color,
             text=[fmt_fn(v) for v in values],
             textposition="outside",
-            textfont=dict(color="white", size=9),
+            textfont=dict(color="white", size=11),
             cliponaxis=False,
         ))
         fig.update_layout(
             height=h,
-            margin=dict(t=20, b=100, l=20, r=20),
+            margin=dict(t=20, b=110, l=20, r=20),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white", size=10),
-            xaxis=dict(tickfont=dict(size=8), tickangle=-40),
+            font=dict(color="white", size=11),
+            xaxis=dict(tickfont=dict(size=11), tickangle=-40),
             yaxis=dict(showticklabels=False, showgrid=False),
             bargap=0.18,
         )
