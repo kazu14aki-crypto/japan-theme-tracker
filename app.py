@@ -903,6 +903,13 @@ def format_large_number(n):
     elif n >= 1e8: return f"{n/1e8:.0f}億円"
     return f"{n:,.0f}円"
 
+def format_large_number_nunit(n):
+    """グラフ表示用：単位「円」を省略し数字＋兆・億のみ"""
+    if n is None: return "N/A"
+    if n >= 1e12: return f"{n/1e12:.1f}兆"
+    elif n >= 1e8: return f"{n/1e8:.0f}億"
+    return f"{n/1e4:.0f}万"
+
 # =====================
 # キャッシュ付きデータ取得
 # =====================
@@ -1548,7 +1555,7 @@ if pidx == PAGE_THEME_LIST:
 
     import plotly.graph_objects as _go_bar
 
-    def make_vertical_bar(labels, values, title_text, color, value_fmt_fn):
+    def make_vertical_bar(labels, values, title_text, color, value_fmt_fn, textsize=11):
         """縦棒グラフ：横軸左→右で1位→5位（右ほど順位下）"""
         fig = _go_bar.Figure(_go_bar.Bar(
             x=labels,
@@ -1556,7 +1563,7 @@ if pidx == PAGE_THEME_LIST:
             marker_color=color,
             text=[value_fmt_fn(v) for v in values],
             textposition="outside",
-            textfont=dict(color="white", size=11),
+            textfont=dict(color="white", size=textsize),
             cliponaxis=False,
         ))
         fig.update_layout(
@@ -1593,7 +1600,7 @@ if pidx == PAGE_THEME_LIST:
         _tvvalues = [r["合計売買代金"] for r in tv_top5]
         st.plotly_chart(
             make_vertical_bar(_tvlabels, _tvvalues, "売買代金TOP5", "#e8963a",
-                              lambda v: format_large_number(v)),
+                              lambda v: format_large_number_nunit(v), textsize=13),
             use_container_width=True, config=PLOT_CONFIG
         )
 
@@ -1645,14 +1652,14 @@ if pidx == PAGE_THEME_LIST:
 
     import plotly.graph_objects as _go_full
 
-    def _make_full_vbar(labels, values, color, fmt_fn, h):
+    def _make_full_vbar(labels, values, color, fmt_fn, h, textsize=11):
         """全テーマ用縦棒グラフ（幅フル使用）"""
         fig = _go_full.Figure(_go_full.Bar(
             x=labels, y=values,
             marker_color=color,
             text=[fmt_fn(v) for v in values],
             textposition="outside",
-            textfont=dict(color="white", size=11),
+            textfont=dict(color="white", size=textsize),
             cliponaxis=False,
         ))
         fig.update_layout(
@@ -1686,7 +1693,7 @@ if pidx == PAGE_THEME_LIST:
     _at_values = [r["合計売買代金"] for r in tv_sorted_all]
     st.plotly_chart(
         _make_full_vbar(_at_labels, _at_values, "#e8963a",
-                        lambda v: format_large_number(v), _full_h),
+                        lambda v: format_large_number_nunit(v), _full_h, textsize=13),
         use_container_width=True, config=PLOT_CONFIG
     )
 
