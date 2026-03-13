@@ -24,9 +24,11 @@ st.set_page_config(
 # ── StockWaveJP ロゴ（Streamlit標準ヘッダーバーにCSSで埋め込む） ──
 # position:fixedはiframe内では機能しないため、
 # Streamlitのheaderバー内にロゴをCSSで表示する方式を採用
+# ── フォント読み込み（<style>タグ内に@importで記述してStreamlitのサニタイズを回避）──
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+
 /* ── グローバルフォント：DM Sans + Noto Sans JP ── */
 .stApp, .stApp *,
 .stMarkdown, .stMarkdown *,
@@ -1417,8 +1419,16 @@ div[data-testid="stSidebar"] .stButton:nth-of-type({_pidx_now + 2}) > button {{
 # ── サイドバー上部：ロゴ固定表示 ──
 st.sidebar.markdown("""
 <style>
-/* サイドバーロゴを上部固定 */
+/* サイドバーの最上部余白を完全ゼロにしてロゴを最上部へ */
 div[data-testid="stSidebar"] > div:first-child {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+div[data-testid="stSidebar"] > div:first-child > div:first-child {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+section[data-testid="stSidebar"] > div:first-child {
     padding-top: 0 !important;
 }
 #swjp-sidebar-logo {
@@ -1426,9 +1436,20 @@ div[data-testid="stSidebar"] > div:first-child {
     top: 0;
     z-index: 100;
     background: #0d1020;
-    padding: 8px 12px 6px 12px;
-    margin: -1rem -1rem 0.2rem -1rem;
+    padding: 10px 12px 8px 12px;
+    margin: -3rem -1rem 0.5rem -1rem;
     border-bottom: 1px solid #1a1e30;
+}
+#swjp-sidebar-logo .menu-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    color: #2a3a5a;
+    text-transform: uppercase;
+    padding: 8px 2px 0 2px;
+    margin-top: 6px;
+    border-top: 1px solid #1a1e30;
 }
 </style>
 <div id="swjp-sidebar-logo">
@@ -1455,10 +1476,9 @@ div[data-testid="stSidebar"] > div:first-child {
       <div style="font-size:7px;letter-spacing:0.4em;color:#3a4560;font-weight:700;margin-top:1px;">株　式　波　動</div>
     </div>
   </div>
+  <div class="menu-label">MENU</div>
 </div>
 """, unsafe_allow_html=True)
-
-st.sidebar.markdown("### メニュー")
 for _i, _p in enumerate(PAGES):
     if st.sidebar.button(_p, key=f"nav_{_i}", use_container_width=True):
         st.session_state["current_page_idx"] = _i
