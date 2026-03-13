@@ -1252,8 +1252,7 @@ def get_pages():
         "💹 資金フロー",
         "📈 騰落推移",
         "🔥 ヒートマップ",
-        "📉 テーマ比較",
-        "🌍 マクロ比較",
+        "📊 テーマ・マクロ比較",
         "📋 市場別ランキング",
         "🔍 テーマ別詳細",
         "⭐ お気に入り",
@@ -1433,15 +1432,14 @@ PAGE_FUND_FLOW     = 2
 PAGE_TREND         = 3
 PAGE_HEATMAP       = 4
 PAGE_COMPARE       = 5
-PAGE_MACRO         = 6
-PAGE_MARKET_RANK   = 7
-PAGE_THEME_DETAIL  = 8
-PAGE_FAVORITES     = 9
-PAGE_CUSTOM        = 10
-PAGE_NEWS          = 11
-PAGE_HOWTO         = 12
-PAGE_SETTINGS      = 13
-PAGE_DISCLAIMER    = 14
+PAGE_MARKET_RANK   = 6
+PAGE_THEME_DETAIL  = 7
+PAGE_FAVORITES     = 8
+PAGE_CUSTOM        = 9
+PAGE_NEWS          = 10
+PAGE_HOWTO         = 11
+PAGE_SETTINGS      = 12
+PAGE_DISCLAIMER    = 13
 
 pidx = st.session_state.get("current_page_idx", 0)
 
@@ -2346,19 +2344,22 @@ elif pidx == PAGE_HEATMAP:
             st.info("テーマを選択してください")
 
 elif pidx == PAGE_COMPARE:
-    st.subheader("📉 テーマ間比較チャート")
+    st.subheader("📊 テーマ・マクロ比較")
     _cc1, _cc2 = st.columns([1, 3])
     period = period_buttons(key_prefix="comp", col=_cc1)
-    _en2jp_cmp = {k: k for k in themes.keys()}
-    _cmp_opts = [k for k in themes.keys()]
+
+    # ═══════════════════════════════
+    # ① テーマ比較グラフ
+    # ═══════════════════════════════
+    st.markdown("#### 📉 テーマ比較")
+    _cmp_opts = list(themes.keys())
     _cmp_def = _cmp_opts[:2]
-    selected_themes_cmp_disp = st.multiselect("比較するテーマを選択（最大10）", _cmp_opts,
-                                          default=_cmp_def)
-    selected_themes_cmp = [_en2jp_cmp.get(n, n) for n in selected_themes_cmp_disp]
+    selected_themes_cmp = st.multiselect("比較するテーマを選択（最大10）", _cmp_opts,
+                                         default=_cmp_def, key="cmp_theme_sel")
     if len(selected_themes_cmp) < 2:
-        st.warning("2つ以上のテーマを選択してください")
+        st.info("2つ以上のテーマを選択してください")
     else:
-        with st.spinner("データ取得中..."):
+        with st.spinner("テーマデータ取得中..."):
             fig_comp = go.Figure()
             for theme_name in selected_themes_cmp:
                 _series_list = []
@@ -2422,18 +2423,16 @@ elif pidx == PAGE_COMPARE:
         )
         st.plotly_chart(fig_comp, use_container_width=True, config=PLOT_CONFIG)
 
-# =====================
-# マクロ比較
-# =====================
-elif pidx == PAGE_MACRO:
-    st.subheader("🌍 マクロ指標との比較")
-    _mac1, _mac2 = st.columns([1, 3])
-    period = period_buttons(key_prefix="macro", col=_mac1)
-    selected_stock_name = st.selectbox("比較する銘柄を選択", list(all_stocks.keys()))
+    # ═══════════════════════════════
+    # ② マクロ比較グラフ
+    # ═══════════════════════════════
+    st.markdown("---")
+    st.markdown("#### 🌍 マクロ指標との比較")
+    selected_stock_name = st.selectbox("比較する銘柄を選択", list(all_stocks.keys()), key="cmp_macro_stock")
     selected_ticker = all_stocks[selected_stock_name]
     macro_items = {"日経平均":"^N225","S&P500":"^GSPC","ドル円":"JPY=X","TOPIX(ETF)":"1306.T"}
     colors_macro = {"日経平均":"#ffd700","S&P500":"#4b8bff","ドル円":"#ff9900","TOPIX(ETF)":"#cc44ff"}
-    with st.spinner("データ取得中..."):
+    with st.spinner("マクロデータ取得中..."):
         fig_macro = go.Figure()
         try:
             df_sel = fetch_stock_data(selected_ticker, "2y")
@@ -3170,8 +3169,7 @@ elif pidx == PAGE_HOWTO:
         ("💹 資金フロー", "売買代金・出来高の増減からマネーフローを分析します。"),
         ("📈 騰落推移", "テーマの騰落率を時系列で折れ線グラフ表示。複数テーマの比較も可能です。"),
         ("🔥 ヒートマップ", "テーマ×期間のマトリクスを色で可視化。全体感を一目で把握できます。"),
-        ("📉 テーマ比較", "複数テーマを選んで騰落率を並べて比較します。"),
-        ("🌍 マクロ比較", "日経平均・ドル円・S&P500・TOPIXを同一グラフで比較します。"),
+        ("📊 テーマ・マクロ比較", "上段：複数テーマを選んで騰落率を並べて比較。下段：日経平均・ドル円・S&P500・TOPIXとの比較。"),
         ("📋 市場別ランキング", "日経225・プライム・スタンダード・グロース市場別の騰落率ランキングです。"),
         ("🔍 テーマ別詳細", "テーマを選ぶと構成銘柄の詳細データ（RSI・シャープレシオ・52週高値安値）を確認できます。"),
         ("⭐ お気に入り", "気になる銘柄をお気に入り登録して一覧表示できます。"),
