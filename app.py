@@ -1436,10 +1436,11 @@ pidx = st.session_state.get("current_page_idx", 0)
 if pidx == PAGE_THEME_LIST:
     now = _get_now_str()
 
+    # ══ メニュータイトル ══
+    st.subheader("📊 テーマ一覧")
+
     # ── 期間・テーマ数・トグルを1行に ──
     _col_period, _col_count, _col_sp, _col_toggle = st.columns([2, 2, 1, 2])
-
-    # 期間選択
     period_opts   = get_period_options()
     period_labels = list(period_opts.keys())
     current_val   = st.session_state.get("selected_period_val", "1mo")
@@ -1447,32 +1448,20 @@ if pidx == PAGE_THEME_LIST:
     current_label = val_to_label.get(current_val, period_labels[2])
     with _col_period:
         selected = st.selectbox(
-            "📅 期間",
-            period_labels,
+            "📅 期間", period_labels,
             index=period_labels.index(current_label) if current_label in period_labels else 2,
             key="period_sel_home",
         )
     st.session_state["selected_period_val"] = period_opts[selected]
     period = period_opts[selected]
-
-    # テーマ数選択
     with _col_count:
-        display_count = st.selectbox(
-            "📊 テーマ数",
-            [5, 10, 15, 25, 99],
-            index=0,
-        )
-
-    # モバイル／PCトグル
+        display_count = st.selectbox("📊 テーマ数", [5, 10, 15, 25, 99], index=0)
     with _col_toggle:
         st.markdown('<div class="toggle-wrap" style="padding-top:22px;">', unsafe_allow_html=True)
         _toggle_val = st.radio(
-            "表示モード",
-            ["📱 モバイル", "🖥️ PC"],
+            "表示モード", ["📱 モバイル", "🖥️ PC"],
             index=0 if _is_mobile else 1,
-            key="view_toggle_radio",
-            horizontal=True,
-            label_visibility="collapsed",
+            key="view_toggle_radio", horizontal=True, label_visibility="collapsed",
         )
         st.markdown('</div>', unsafe_allow_html=True)
         if (_toggle_val == "📱 モバイル") != _is_mobile:
@@ -1483,31 +1472,30 @@ if pidx == PAGE_THEME_LIST:
     with st.spinner("データを取得中...（初回は時間がかかります）"):
         theme_results, theme_details, _cache_time = fetch_all_theme_data(period, theme_keys)
 
-
-    # データ取得後に現在時刻・更新時刻を表示（_cache_time定義後）
     st.caption(f"🕐 現在時刻：{now}　｜　📦 データ更新：{_cache_time}　　{len(themes)}テーマ・約{len(all_stocks)}銘柄")
 
-    # 表示件数に応じて上位・下位を切り出し
     n = display_count if display_count < 99 else len(theme_results)
     top_results = theme_results[:n]
     bot_results = theme_results[-n:] if display_count < 99 else []
 
-    # === 上昇・下落テーマを横並びで表示 ===
-    _col_top, _col_bot = st.columns(2)
+    # ════════════════════════════════════
+    # ① 株価騰落ランキング（小見出し）
+    # ════════════════════════════════════
+    st.markdown("#### 📈 株価騰落ランキング")
 
+    # 上昇・下落グラフを横並び
+    _col_top, _col_bot = st.columns(2)
     top_labels = [r["テーマ"] for r in top_results]
     top_ranks  = [f"{i+1}" for i in range(len(top_results))]
     top_values = [r["平均騰落率(%)"] for r in top_results]
     top_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in top_values]
     chart_h = max(200, len(top_results) * 38)
-
     with _col_top:
         st.markdown(f'<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🔴 上昇テーマ TOP{n}</p>', unsafe_allow_html=True)
         st.plotly_chart(
             make_bar_chart(top_labels, top_values, top_colors, height=chart_h, rank_labels=top_ranks),
             use_container_width=True, config=PLOT_CONFIG
         )
-
     if bot_results and display_count < 99:
         total = len(theme_results)
         bot_labels = [r["テーマ"] for r in bot_results]
@@ -1522,60 +1510,127 @@ if pidx == PAGE_THEME_LIST:
                 use_container_width=True, config=PLOT_CONFIG
             )
 
-    # === テーマ別出来高・売買代金ランキング ===
-    st.subheader("📊 テーマ別ランキング")
-    col_rank1, col_rank2 = st.columns(2)
+    # ════════════════════════════════════
+    # ② 出来高・売買代金 TOP5 グラフ（縦棒・横軸右ほど順位下）
+    # ════════════════════════════════════
+    st.markdown("#### 💹 出来高・売買代金 TOP5")
 
-    if "show_vol_all" not in st.session_state:
-        st.session_state["show_vol_all"] = False
-    if "show_tv_all" not in st.session_state:
-        st.session_state["show_tv_all"] = False
-
-    # 出来高ランキング
     vol_sorted_all = sorted(theme_results, key=lambda x: x["合計出来高"], reverse=True)
-    with col_rank1:
-        st.markdown("**🔢 テーマ別出来高**")
-        show_v = st.session_state["show_vol_all"]
-        disp_vol = vol_sorted_all if show_v else vol_sorted_all[:5]
-        vol_rows = [
-            {"順位": "{}位".format(i+1), "テーマ": r["テーマ"], "出来高増減": f"{int(r['合計出来高']):,}"}
-            for i, r in enumerate(disp_vol)
-        ]
-        st.dataframe(pd.DataFrame(vol_rows).set_index("順位"), use_container_width=True)
-        btn_label_v = "▲ 閉じる" if show_v else "▼ 6位以下を表示（残り{}件）".format(len(vol_sorted_all)-5)
-        if st.button(btn_label_v, key="btn_vol_toggle", use_container_width=True):
-            st.session_state["show_vol_all"] = not show_v
-            st.rerun()
+    tv_sorted_all  = sorted(theme_results, key=lambda x: x["合計売買代金"], reverse=True)
+    vol_top5 = vol_sorted_all[:5]
+    tv_top5  = tv_sorted_all[:5]
 
-    # 売買代金ランキング
-    tv_sorted_all = sorted(theme_results, key=lambda x: x["合計売買代金"], reverse=True)
-    with col_rank2:
-        st.markdown(f"**{"💴 テーマ別売買代金"}**")
-        show_t = st.session_state["show_tv_all"]
-        disp_tv = tv_sorted_all if show_t else tv_sorted_all[:5]
-        tv_rows = [
-            {"順位": "{}位".format(i+1), "テーマ": r["テーマ"], "売買代金": format_large_number(r["合計売買代金"])}
-            for i, r in enumerate(disp_tv)
-        ]
-        st.dataframe(pd.DataFrame(tv_rows).set_index("順位"), use_container_width=True)
-        btn_label_t = "▲ 閉じる" if show_t else "▼ 6位以下を表示（残り{}件）".format(len(tv_sorted_all)-5)
-        if st.button(btn_label_t, key="btn_tv_toggle", use_container_width=True):
-            st.session_state["show_tv_all"] = not show_t
-            st.rerun()
+    import plotly.graph_objects as _go_bar
 
-    # === 全テーマ一覧表 ===
-    st.subheader("📋 全テーマ一覧")
+    def make_vertical_bar(labels, values, title_text, color, value_fmt_fn):
+        """縦棒グラフ：横軸左→右で1位→5位（右ほど順位下）"""
+        fig = _go_bar.Figure(_go_bar.Bar(
+            x=labels,
+            y=values,
+            marker_color=color,
+            text=[value_fmt_fn(v) for v in values],
+            textposition="outside",
+            textfont=dict(color="white", size=10),
+            cliponaxis=False,
+        ))
+        fig.update_layout(
+            height=280,
+            margin=dict(t=30, b=60, l=20, r=20),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white", size=10),
+            xaxis=dict(
+                tickfont=dict(size=9),
+                tickangle=-30,
+            ),
+            yaxis=dict(
+                showticklabels=False,
+                showgrid=False,
+            ),
+            bargap=0.25,
+        )
+        return fig
+
+    _col_vol5, _col_tv5 = st.columns(2)
+    with _col_vol5:
+        st.markdown('<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🔢 出来高 TOP5</p>', unsafe_allow_html=True)
+        _vlabels = [f"{i+1}位 {r['テーマ']}" for i, r in enumerate(vol_top5)]
+        _vvalues = [r["合計出来高"] for r in vol_top5]
+        st.plotly_chart(
+            make_vertical_bar(_vlabels, _vvalues, "出来高TOP5", "#4a90d9",
+                              lambda v: f"{int(v):,}"),
+            use_container_width=True, config=PLOT_CONFIG
+        )
+    with _col_tv5:
+        st.markdown('<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">💴 売買代金 TOP5</p>', unsafe_allow_html=True)
+        _tvlabels = [f"{i+1}位 {r['テーマ']}" for i, r in enumerate(tv_top5)]
+        _tvvalues = [r["合計売買代金"] for r in tv_top5]
+        st.plotly_chart(
+            make_vertical_bar(_tvlabels, _tvvalues, "売買代金TOP5", "#e8963a",
+                              lambda v: format_large_number(v)),
+            use_container_width=True, config=PLOT_CONFIG
+        )
+
+    # ════════════════════════════════════
+    # ③ 全テーマ騰落率ランキング（横棒グラフ）
+    # ════════════════════════════════════
+    st.markdown("#### 📊 全テーマ 騰落率ランキング")
+    all_labels = [r["テーマ"] for r in theme_results]
+    all_ranks  = [f"{i+1}" for i in range(len(theme_results))]
+    all_values = [r["平均騰落率(%)"] for r in theme_results]
+    all_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in all_values]
+    all_h = max(300, len(theme_results) * 28)
+    st.plotly_chart(
+        make_bar_chart(all_labels, all_values, all_colors, height=all_h, rank_labels=all_ranks),
+        use_container_width=True, config=PLOT_CONFIG
+    )
+
+    # ════════════════════════════════════
+    # ④ 全テーマ 出来高・売買代金ランキンググラフ（縦棒）
+    # ════════════════════════════════════
+    st.markdown("#### 💹 全テーマ 出来高・売買代金ランキング")
+    _col_allv, _col_allt = st.columns(2)
+
+    with _col_allv:
+        st.markdown('<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🔢 出来高（全テーマ）</p>', unsafe_allow_html=True)
+        _av_labels = [f"{i+1}位 {r['テーマ']}" for i, r in enumerate(vol_sorted_all)]
+        _av_values = [r["合計出来高"] for r in vol_sorted_all]
+        st.plotly_chart(
+            make_vertical_bar(_av_labels, _av_values, "", "#4a90d9",
+                              lambda v: f"{int(v/1e6):.0f}M" if v >= 1e6 else f"{int(v):,}"),
+            use_container_width=True, config=PLOT_CONFIG
+        )
+    with _col_allt:
+        st.markdown('<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">💴 売買代金（全テーマ）</p>', unsafe_allow_html=True)
+        _at_labels = [f"{i+1}位 {r['テーマ']}" for i, r in enumerate(tv_sorted_all)]
+        _at_values = [r["合計売買代金"] for r in tv_sorted_all]
+        st.plotly_chart(
+            make_vertical_bar(_at_labels, _at_values, "", "#e8963a",
+                              lambda v: format_large_number(v)),
+            use_container_width=True, config=PLOT_CONFIG
+        )
+
+    # ════════════════════════════════════
+    # ⑤ 全テーマ 数値一覧表
+    # ════════════════════════════════════
+    st.markdown("#### 📋 全テーマ 数値一覧")
     table_data = []
     for rank, r in enumerate(theme_results, 1):
-        c_ret, v = r["平均騰落率(%)"], r["出来高増減(%)"]
-        row = {
-            "順位": "{}位".format(rank),
-            "テーマ": r["テーマ"],
-            "騰落率": f"🔴 +{c_ret}%" if c_ret>0 else f"🟢 {c_ret}%",
-            "出来高増減": f"📈 +{v}%" if v>0 else f"📉 {v}%",
-        }
-        table_data.append(row)
-    df_table = pd.DataFrame(table_data).set_index("順位")
+        c_ret = r["平均騰落率(%)"]
+        v_chg = r["出来高増減(%)"]
+        # 出来高・売買代金の順位を逆引き
+        vol_rank = next((i+1 for i, x in enumerate(vol_sorted_all) if x["テーマ"] == r["テーマ"]), "-")
+        tv_rank  = next((i+1 for i, x in enumerate(tv_sorted_all)  if x["テーマ"] == r["テーマ"]), "-")
+        table_data.append({
+            "騰落順位": f"{rank}位",
+            "テーマ":   r["テーマ"],
+            "騰落率":   f"🔴 +{c_ret}%" if c_ret > 0 else f"🟢 {c_ret}%",
+            "出来高増減": f"📈 +{v_chg}%" if v_chg > 0 else f"📉 {v_chg}%",
+            "出来高順位": f"{vol_rank}位",
+            "売買代金順位": f"{tv_rank}位",
+            "売買代金":  format_large_number(r["合計売買代金"]),
+        })
+    df_table = pd.DataFrame(table_data).set_index("騰落順位")
     st.dataframe(df_table, use_container_width=True)
     st.download_button("📥 CSVダウンロード", df_table.to_csv(encoding="utf-8-sig"),
                        f"theme_list_{now}.csv", "text/csv")
