@@ -25,8 +25,23 @@ st.set_page_config(
 # position:fixedはiframe内では機能しないため、
 # Streamlitのheaderバー内にロゴをCSSで表示する方式を採用
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
+/* ── グローバルフォント：DM Sans + Noto Sans JP ── */
+.stApp, .stApp *,
+.stMarkdown, .stMarkdown *,
+[data-testid="stSidebar"], [data-testid="stSidebar"] *,
+button, label, input, select, textarea,
+[data-testid="stSelectbox"] *, [data-testid="stMultiSelect"] *,
+[data-testid="stRadio"] *, [data-testid="stCheckbox"] * {
+    font-family: 'DM Sans', 'Noto Sans JP', sans-serif !important;
+}
+/* 数値はDM Mono */
+[data-testid="stMetricValue"] {
+    font-family: 'DM Mono', monospace !important;
+    letter-spacing: -0.03em !important;
+}
+
 /* Streamlitデフォルトヘッダーバーを活用してロゴを表示 */
 header[data-testid="stHeader"] {
     background: #0a0c14 !important;
@@ -38,10 +53,10 @@ header[data-testid="stHeader"] {
 /* ヘッダー内にロゴをCSSで挿入 */
 header[data-testid="stHeader"]::before {
     content: "StockWaveJP";
-    font-family: 'Arial Black', sans-serif;
-    font-size: 22px;
-    font-weight: 900;
-    letter-spacing: 0.02em;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     color: #ffffff;
     position: absolute;
     left: 16px;
@@ -124,10 +139,9 @@ COLOR_THEMES = {
 _stc.html("""
 <script>
 (function() {
+    // ── スマホ判定 ──
     const w = window.innerWidth;
     const isMobile = w <= 640;
-    // Streamlitのpostmessageで幅をセッションに渡すのは不可なため
-    // URLパラメータに埋め込む方式を使用
     const url = new URL(window.parent.location.href);
     const current = url.searchParams.get("_mobile");
     const newVal  = isMobile ? "1" : "0";
@@ -468,6 +482,72 @@ hr {{
     }}
 }}
 
+/* ── タイポグラフィ強化 ── */
+/* セクション見出し（#### 相当）に下線アクセント */
+[data-testid="stMarkdownContainer"] h4 {{
+    font-family: 'DM Sans', 'Noto Sans JP', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    color: {_c['text_secondary']} !important;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid {_c['border']} !important;
+    margin-bottom: 12px !important;
+    margin-top: 8px !important;
+}}
+h1, h2, h3, h4 {{
+    font-family: 'DM Sans', 'Noto Sans JP', sans-serif !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+}}
+/* ページタイトル（subheader）*/
+[data-testid="stMarkdownContainer"] h4 {{
+    font-size: 1.15em !important;
+    font-weight: 600 !important;
+    color: {_c['text_primary']} !important;
+    margin-bottom: 0.4em !important;
+}}
+
+/* ── セクション区切り線を洗練 ── */
+hr {{
+    border: none !important;
+    border-top: 1px solid {_c['border']} !important;
+    opacity: 0.6 !important;
+}}
+
+/* ── ナビゲーションボタン（サイドバー）── */
+div[data-testid="stSidebar"] div.stButton > button {{
+    font-family: 'DM Sans', 'Noto Sans JP', sans-serif !important;
+    font-weight: 500 !important;
+    font-size: 0.9em !important;
+    letter-spacing: -0.01em !important;
+    border-radius: 6px !important;
+    transition: all 0.15s !important;
+}}
+
+/* ── キャプション ── */
+[data-testid="stCaptionContainer"] p {{
+    font-family: 'DM Sans', 'Noto Sans JP', sans-serif !important;
+    font-size: 0.78em !important;
+    letter-spacing: 0.02em !important;
+}}
+
+/* ── DataFrameスタイル強化 ── */
+[data-testid="stDataFrame"] {{
+    font-family: 'DM Sans', 'Noto Sans JP', sans-serif !important;
+}}
+[data-testid="stDataFrame"] table {{
+    font-size: 13px !important;
+}}
+[data-testid="stDataFrame"] th {{
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    color: {_c['text_secondary']} !important;
+}}
 /* ── ツールバー・フッター等を非表示 ── */
 [data-testid="stDecoration"] {{ display: none !important; }}
 [data-testid="stDeployButton"] {{ display: none !important; }}
@@ -1106,7 +1186,7 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
     """
     if not values or not labels:
         fig = go.Figure()
-        fig.update_layout(height=150, paper_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
+        fig.update_layout(height=150, paper_bgcolor="rgba(0,0,0,0)", font=dict(color="white", family="DM Sans, Noto Sans JP, sans-serif"))
         return fig
 
     n = len(values)
@@ -1138,7 +1218,7 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
         marker_color=colors,
         text=[f" {v:+.2f}%" for v in values],
         textposition=text_positions,
-        textfont=dict(color="white", size=10),
+        textfont=dict(color="white", size=10, family="DM Sans, Noto Sans JP, sans-serif"),
         insidetextanchor="middle",
         cliponaxis=False,
     ))
@@ -1158,7 +1238,7 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
                 showarrow=False,
                 xanchor="left",
                 yanchor="middle",
-                font=dict(color=rank_color, size=11, family="Arial"),
+                font=dict(color=rank_color, size=11, family="DM Sans, Noto Sans JP, sans-serif"),
                 xshift=0,
             ))
 
@@ -1179,7 +1259,7 @@ def make_bar_chart(labels, values, colors, height=None, left_margin=None, rank_l
         ),
         annotations=annotations,
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white", size=11),
+        font=dict(color="white", size=11, family="DM Sans, Noto Sans JP, sans-serif"),
         height=h, bargap=0.2,
         margin=dict(t=8, b=36, l=lm, r=60),
     )
@@ -1217,7 +1297,7 @@ def make_price_chart(df, display_df, chart_type="candlestick", show_ma=True):
         ),
         yaxis=dict(title="株価（円）", tickprefix="¥"),
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white"), height=400,
+        font=dict(color="white", family="DM Sans, Noto Sans JP, sans-serif"), height=400,
         legend=dict(orientation="h", y=1.1),
         margin=dict(t=40, b=40, l=70, r=20),
     )
@@ -1368,9 +1448,9 @@ div[data-testid="stSidebar"] > div:first-child {
     </svg>
     <div style="line-height:1;">
       <div style="display:flex;align-items:baseline;gap:0;">
-        <span style="font-family:'Arial Black',sans-serif;font-size:16px;font-weight:900;color:#e63030;letter-spacing:0.03em;">Stock</span>
-        <span style="font-family:'Arial Black',sans-serif;font-size:16px;font-weight:900;color:#ffffff;letter-spacing:0.03em;">Wave</span>
-        <span style="font-family:'Arial Black',sans-serif;font-size:10px;font-weight:900;color:#e63030;margin-left:2px;letter-spacing:0.1em;">JP</span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#e63030;letter-spacing:-0.01em;">Stock</span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">Wave</span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;color:#e63030;margin-left:2px;letter-spacing:0.05em;">JP</span>
       </div>
       <div style="font-size:7px;letter-spacing:0.4em;color:#3a4560;font-weight:700;margin-top:1px;">株　式　波　動</div>
     </div>
@@ -1574,6 +1654,93 @@ if pidx == PAGE_THEME_LIST:
 
     st.caption(f"🕐 現在時刻：{now}　｜　📦 データ更新：{_cache_time}　　{len(themes)}テーマ・約{len(all_stocks)}銘柄")
 
+    # ════════════════════════════════════
+    # ── KPIサマリーカード ──
+    # ════════════════════════════════════
+    _rise_count = sum(1 for r in theme_results if r["平均騰落率(%)"] >= 0)
+    _fall_count = len(theme_results) - _rise_count
+    _avg_all    = sum(r["平均騰落率(%)"] for r in theme_results) / len(theme_results) if theme_results else 0
+    _top_theme  = theme_results[0]["テーマ"]  if theme_results else "-"
+    _top_pct    = theme_results[0]["平均騰落率(%)"] if theme_results else 0
+    _bot_theme  = theme_results[-1]["テーマ"] if theme_results else "-"
+    _bot_pct    = theme_results[-1]["平均騰落率(%)"] if theme_results else 0
+
+    _kpi_cols = st.columns(4)
+    _kpi_style = """
+<style>
+.swjp-kpi {
+    background: #0c1628;
+    border: 1px solid rgba(74,120,200,0.12);
+    border-radius: 10px;
+    padding: 16px 18px 14px;
+    position: relative;
+    overflow: hidden;
+}
+.swjp-kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 16px; right: 16px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(74,120,200,0.4), transparent);
+}
+.swjp-kpi-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: #2a4060;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    font-family: 'DM Sans', sans-serif;
+}
+.swjp-kpi-value {
+    font-family: 'DM Mono', 'DM Sans', monospace;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 6px;
+}
+.swjp-kpi-sub {
+    font-size: 11px;
+    color: #2a4060;
+    font-family: 'DM Sans', sans-serif;
+}
+</style>
+"""
+    with _kpi_cols[0]:
+        st.markdown(_kpi_style + f"""
+<div class="swjp-kpi">
+  <div class="swjp-kpi-label">上昇 / 下落テーマ</div>
+  <div class="swjp-kpi-value" style="color:#e8f0ff">{_rise_count}<span style="font-size:16px;color:#1e3050;font-weight:400"> / {_fall_count}</span></div>
+  <div class="swjp-kpi-sub">全{len(theme_results)}テーマ中</div>
+</div>""", unsafe_allow_html=True)
+    with _kpi_cols[1]:
+        _avg_color = "#ff4560" if _avg_all >= 0 else "#00c48c"
+        _avg_sign  = "+" if _avg_all >= 0 else ""
+        st.markdown(f"""
+<div class="swjp-kpi">
+  <div class="swjp-kpi-label">全テーマ 平均騰落率</div>
+  <div class="swjp-kpi-value" style="color:{_avg_color}">{_avg_sign}{_avg_all:.2f}%</div>
+  <div class="swjp-kpi-sub">期間: {selected}</div>
+</div>""", unsafe_allow_html=True)
+    with _kpi_cols[2]:
+        _top_sign = "+" if _top_pct >= 0 else ""
+        st.markdown(f"""
+<div class="swjp-kpi">
+  <div class="swjp-kpi-label">資金流入 TOP</div>
+  <div class="swjp-kpi-value" style="font-size:20px;color:#e8f0ff">{_top_theme}</div>
+  <div class="swjp-kpi-sub" style="color:#ff4560;font-weight:600">{_top_sign}{_top_pct:.1f}%</div>
+</div>""", unsafe_allow_html=True)
+    with _kpi_cols[3]:
+        _bot_sign = "+" if _bot_pct >= 0 else ""
+        st.markdown(f"""
+<div class="swjp-kpi">
+  <div class="swjp-kpi-label">資金流出 TOP</div>
+  <div class="swjp-kpi-value" style="font-size:20px;color:#e8f0ff">{_bot_theme}</div>
+  <div class="swjp-kpi-sub" style="color:#00c48c;font-weight:600">{_bot_sign}{_bot_pct:.1f}%</div>
+</div>""", unsafe_allow_html=True)
+    st.markdown("<div style='margin-bottom:8px'></div>", unsafe_allow_html=True)
+
     n = display_count if display_count < 99 else len(theme_results)
     top_results = theme_results[:n]
     bot_results = theme_results[-n:] if display_count < 99 else []
@@ -1594,7 +1761,7 @@ if pidx == PAGE_THEME_LIST:
             marker_color=colors,
             text=[f"{v:+.2f}%" for v in values],
             textposition="outside",
-            textfont=dict(color="white", size=11),
+            textfont=dict(color="white", size=11, family="DM Sans, Noto Sans JP, sans-serif"),
             cliponaxis=False,
         ))
         fig.add_hline(y=0, line_color="#555555", line_width=1)
@@ -1603,7 +1770,7 @@ if pidx == PAGE_THEME_LIST:
             margin=dict(t=20, b=100, l=20, r=20),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white", size=11),
+            font=dict(color="white", size=11, family="DM Sans, Noto Sans JP, sans-serif"),
             xaxis=dict(tickfont=dict(size=11), tickangle=-35),
             yaxis=dict(
                 ticksuffix="%", tickfont=dict(size=11),
@@ -1619,7 +1786,7 @@ if pidx == PAGE_THEME_LIST:
     chart_h = max(260, len(top_results) * 36)
 
     with _col_top:
-        st.markdown(f'<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🔴 上昇テーマ TOP{n}</p>', unsafe_allow_html=True)
+        st.markdown(f'<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">▲ 上昇テーマ TOP{n}</p>', unsafe_allow_html=True)
         st.plotly_chart(
             _make_top_vbar(top_labels, top_values, top_colors, chart_h),
             use_container_width=True, config=PLOT_CONFIG
@@ -1631,7 +1798,7 @@ if pidx == PAGE_THEME_LIST:
         bot_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in bot_values]
         chart_h2 = max(260, len(bot_results) * 36)
         with _col_bot:
-            st.markdown(f'<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">🟢 下落テーマ TOP{n}</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="font-size:12px;font-weight:700;margin:4px 0 2px;">▼ 下落テーマ TOP{n}</p>', unsafe_allow_html=True)
             st.plotly_chart(
                 _make_top_vbar(bot_labels, bot_values, bot_colors, chart_h2),
                 use_container_width=True, config=PLOT_CONFIG
@@ -1665,7 +1832,7 @@ if pidx == PAGE_THEME_LIST:
             margin=dict(t=30, b=100, l=20, r=20),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white", size=11),
+            font=dict(color="white", size=11, family="DM Sans, Noto Sans JP, sans-serif"),
             xaxis=dict(
                 tickfont=dict(size=11),
                 tickangle=-30,
@@ -1702,41 +1869,74 @@ if pidx == PAGE_THEME_LIST:
     # ③ 全テーマ騰落率ランキング（横棒グラフ）
     # ════════════════════════════════════
     st.markdown("#### 📊 全テーマ 騰落率ランキング")
-    all_labels = [f"{i+1}位 {r['テーマ']}" for i, r in enumerate(theme_results)]
+    all_labels = [f"{i+1}. {r['テーマ']}" for i, r in enumerate(theme_results)]
     all_values = [r["平均騰落率(%)"] for r in theme_results]
     all_colors = ["#ff4b4b" if v >= 0 else "#39d353" for v in all_values]
 
     import plotly.graph_objects as _go_all
-    _fig_all = _go_all.Figure(_go_all.Bar(
-        x=all_labels,
-        y=all_values,
-        marker_color=all_colors,
-        text=[f"{v:+.2f}%" for v in all_values],
-        textposition="outside",
-        textfont=dict(color="white", size=11),
-        cliponaxis=False,
-    ))
-    # 0ラインの参照線
-    _fig_all.add_hline(y=0, line_color="#555555", line_width=1)
-    _fig_all.update_layout(
-        height=max(380, len(theme_results) * 20),
-        margin=dict(t=20, b=110, l=20, r=20),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white", size=11),
-        xaxis=dict(
-            tickfont=dict(size=11),
-            tickangle=-40,
-        ),
-        yaxis=dict(
-            title="騰落率（%）",
-            ticksuffix="%",
-            tickfont=dict(size=11),
-            title_font=dict(size=11),
-            zeroline=True, zerolinecolor="#555", zerolinewidth=1,
-        ),
-        bargap=0.18,
-    )
+
+    if _is_mobile:
+        # ── スマホ：横棒グラフ（テーマ名を左に縦並び・見やすい） ──
+        # 騰落率降順のまま上から表示（y軸はreversed）
+        _row_h = 28  # 1行の高さ(px)
+        _lmargin = max(120, max(len(l) for l in all_labels) * 7)
+        _fig_all = _go_all.Figure(_go_all.Bar(
+            y=all_labels,
+            x=all_values,
+            orientation="h",
+            marker_color=all_colors,
+            text=[f" {v:+.2f}%" for v in all_values],
+            textposition="outside",
+            textfont=dict(color="white", size=10, family="DM Sans, Noto Sans JP, sans-serif"),
+            cliponaxis=False,
+        ))
+        _xabs = max(abs(v) for v in all_values) if all_values else 1
+        _xmargin = _xabs * 0.35
+        _fig_all.add_vline(x=0, line_color="#555555", line_width=1)
+        _fig_all.update_layout(
+            height=max(400, len(theme_results) * _row_h + 60),
+            margin=dict(t=10, b=20, l=_lmargin, r=60),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white", size=10, family="DM Sans, Noto Sans JP, sans-serif"),
+            xaxis=dict(
+                title="騰落率（%）", ticksuffix="%",
+                tickfont=dict(size=10),
+                zeroline=True, zerolinecolor="#555", zerolinewidth=1,
+                range=[-_xabs - _xmargin, _xabs + _xmargin],
+            ),
+            yaxis=dict(
+                tickfont=dict(size=11),
+                autorange="reversed",  # 上位が上
+            ),
+            bargap=0.2,
+        )
+    else:
+        # ── PC：縦棒グラフ（従来通り） ──
+        _fig_all = _go_all.Figure(_go_all.Bar(
+            x=all_labels,
+            y=all_values,
+            marker_color=all_colors,
+            text=[f"{v:+.2f}%" for v in all_values],
+            textposition="outside",
+            textfont=dict(color="white", size=11, family="DM Sans, Noto Sans JP, sans-serif"),
+            cliponaxis=False,
+        ))
+        _fig_all.add_hline(y=0, line_color="#555555", line_width=1)
+        _fig_all.update_layout(
+            height=max(380, len(theme_results) * 20),
+            margin=dict(t=20, b=110, l=20, r=20),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white", size=11, family="DM Sans, Noto Sans JP, sans-serif"),
+            xaxis=dict(tickfont=dict(size=11), tickangle=-40),
+            yaxis=dict(
+                title="騰落率（%）", ticksuffix="%",
+                tickfont=dict(size=11), title_font=dict(size=11),
+                zeroline=True, zerolinecolor="#555", zerolinewidth=1,
+            ),
+            bargap=0.18,
+        )
     st.plotly_chart(_fig_all, use_container_width=True, config=PLOT_CONFIG)
 
     # ════════════════════════════════════
@@ -1761,7 +1961,7 @@ if pidx == PAGE_THEME_LIST:
             margin=dict(t=20, b=110, l=20, r=20),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white", size=11),
+            font=dict(color="white", size=11, family="DM Sans, Noto Sans JP, sans-serif"),
             xaxis=dict(tickfont=dict(size=11), tickangle=-40),
             yaxis=dict(showticklabels=False, showgrid=False),
             bargap=0.18,
@@ -1805,8 +2005,8 @@ if pidx == PAGE_THEME_LIST:
         table_data.append({
             "騰落順位": f"{rank}位",
             "テーマ":   r["テーマ"],
-            "騰落率":   f"🔴 +{c_ret}%" if c_ret > 0 else f"🟢 {c_ret}%",
-            "出来高増減": f"📈 +{v_chg}%" if v_chg > 0 else f"📉 {v_chg}%",
+            "騰落率":   f"▲ +{c_ret}%" if c_ret > 0 else f"▼ {c_ret}%",
+            "出来高増減": f"▲ +{v_chg}%" if v_chg > 0 else f"▼ {v_chg}%",
             "出来高順位": f"{vol_rank}位",
             "売買代金順位": f"{tv_rank}位",
             "売買代金":  format_large_number(r["合計売買代金"]),
@@ -1882,7 +2082,7 @@ elif pidx == PAGE_MOMENTUM:
         dw  = d["先週比"]
         dm  = d["先月比"]
         state = d["状態"]
-        c_color = "🔴" if cur >= 0 else "🟢"
+        c_color = "▲" if cur >= 0 else "▼"
         dw_icon = "▲" if dw > 1 else "▼" if dw < -1 else "→"
         dm_icon = "▲" if dm > 1 else "▼" if dm < -1 else "→"
         sign = "+" if cur >= 0 else ""
@@ -2055,7 +2255,7 @@ elif pidx == PAGE_TREND:
                 yaxis=dict(title="騰落率（%）", ticksuffix="%", zeroline=False),
                 plot_bgcolor="rgba(0,0,0,0)",
                 paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white", size=12),
+                font=dict(color="white", size=12, family="DM Sans, Noto Sans JP, sans-serif"),
                 height=520,
                 legend=dict(orientation="h", y=-0.2, x=0, font=dict(size=11)),
                 margin=dict(t=30, b=80, l=60, r=20),
@@ -2194,7 +2394,7 @@ elif pidx == PAGE_HEATMAP:
         abs_max = max(abs(min(all_vals)), abs(max(all_vals))) if all_vals else 10
         n_themes = len(df_heat)
 
-        st.markdown("🔴**赤=上昇** 　🟢**緑=下落** 　⬛**黒=±0**")
+        st.markdown("▲ **赤=上昇** 　▼ **緑=下落** 　■ **黒=±0**")
 
         z = df_heat.values.tolist()
         cell_text = [[f"{v:.1f}%" if v is not None else "" for v in row] for row in z]
@@ -2220,7 +2420,7 @@ elif pidx == PAGE_HEATMAP:
             xaxis=dict(side="top", tickfont=dict(size=12), tickangle=0, fixedrange=True),
             yaxis=dict(autorange="reversed", tickfont=dict(size=10), fixedrange=True),
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white"),
+            font=dict(color="white", family="DM Sans, Noto Sans JP, sans-serif"),
             height=max(420, n_themes * 26 + 60),
             margin=dict(t=45, b=10, l=155, r=60),
         )
@@ -2231,7 +2431,7 @@ elif pidx == PAGE_HEATMAP:
     # タブ2: 月次推移ヒートマップ（過去12ヶ月・月単位）
     # ============================================================
     with tab_monthly:
-        st.markdown("**過去12ヶ月の月別騰落率** 🔴赤=上昇　🟢緑=下落")
+        st.markdown("**過去12ヶ月の月別騰落率** ▲ 赤=上昇　▼ 緑=下落")
         st.caption("各月の始値→終値の騰落率（テーマ内銘柄の平均）")
         with st.spinner("月次データ取得中...（少し時間がかかります）"):
             monthly_data, month_labels = fetch_monthly_heatmap(theme_keys)
@@ -2279,7 +2479,7 @@ elif pidx == PAGE_HEATMAP:
             ),
             yaxis=dict(autorange="reversed", tickfont=dict(size=10), fixedrange=True),
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white"),
+            font=dict(color="white", family="DM Sans, Noto Sans JP, sans-serif"),
             height=max(420, n_t * 26 + 70),
             margin=dict(t=55, b=10, l=155, r=60),
         )
@@ -2308,10 +2508,10 @@ elif pidx == PAGE_HEATMAP:
             st.session_state["hl_preset"] = sorted_by_1m2.head(5).index.tolist()
         c1, c2, c3 = st.columns(3)
         with c1:
-            if st.button("🔴 上昇TOP5", key="hl_top5"):
+            if st.button("▲ 上昇TOP5", key="hl_top5"):
                 st.session_state["hl_preset"] = sorted_by_1m2.head(5).index.tolist(); st.rerun()
         with c2:
-            if st.button("🟢 下落TOP5", key="hl_bot5"):
+            if st.button("▼ 下落TOP5", key="hl_bot5"):
                 st.session_state["hl_preset"] = sorted_by_1m2.tail(5).index.tolist(); st.rerun()
         with c3:
             if st.button("📋 全テーマ", key="hl_all"):
@@ -2343,13 +2543,13 @@ elif pidx == PAGE_HEATMAP:
                 xaxis=dict(title="期間", categoryorder="array", categoryarray=period_cols),
                 yaxis=dict(title="騰落率（%）", ticksuffix="%"),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white", size=11), height=460,
+                font=dict(color="white", size=11, family="DM Sans, Noto Sans JP, sans-serif"), height=460,
                 legend=dict(orientation="h", x=0, y=-0.22, font=dict(size=10)),
                 margin=dict(t=30, b=120, l=60, r=20),
             )
             st.plotly_chart(fig_line, use_container_width=True, config=PLOT_CONFIG)
             df_sel = df_heat2.loc[selected_line_themes].copy()
-            df_sel = df_sel.applymap(lambda x: f"🔴 +{x}%" if x and x>0 else f"🟢 {x}%" if x else "N/A")
+            df_sel = df_sel.applymap(lambda x: f"▲ +{x}%" if x and x>0 else f"▼ {x}%" if x else "N/A")
             st.dataframe(df_sel, use_container_width=True)
         else:
             st.info("テーマを選択してください")
@@ -2428,7 +2628,7 @@ elif pidx == PAGE_COMPARE:
             xaxis=dict(title="日付", dtick="M1", tickformat="%y/%m"),
             yaxis=dict(title="累積リターン（%）", ticksuffix="%"),
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(color="white", size=12), height=500,
+            font=dict(color="white", size=12, family="DM Sans, Noto Sans JP, sans-serif"), height=500,
             legend=dict(orientation="h", y=1.1),
             margin=dict(t=60, b=50, l=70, r=20),
         )
@@ -2467,7 +2667,7 @@ elif pidx == PAGE_COMPARE:
         xaxis=dict(title="日付", dtick="M1", tickformat="%y/%m"),
         yaxis=dict(title="累積リターン（%）", ticksuffix="%"),
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white", size=12), height=500,
+        font=dict(color="white", size=12, family="DM Sans, Noto Sans JP, sans-serif"), height=500,
         legend=dict(orientation="h", y=1.1),
         margin=dict(t=60, b=50, l=70, r=20),
     )
@@ -2533,7 +2733,7 @@ elif pidx == PAGE_MARKET_RANK:
                             "コード":          code,
                             "銘柄名":          stock_name,
                             "株価":            f"¥{price:,}",
-                            "前日比":          f"🔴 +{day_c}%" if day_c and day_c>0 else f"🟢 {day_c}%" if day_c else "N/A",
+                            "前日比":          f"▲ +{day_c}%" if day_c and day_c>0 else f"▼ {day_c}%" if day_c else "N/A",
                             "騰落率":          change,
                             "出来高":          volume_str,
                             "売買代金":        format_large_number(trade_val),
@@ -2584,7 +2784,7 @@ elif pidx == PAGE_MARKET_RANK:
                     marker_color=c_colors,
                     text=[f" {v:+.2f}%" for v in c_values],
                     textposition=_text_pos,
-                    textfont=dict(color="white", size=11),
+                    textfont=dict(color="white", size=11, family="DM Sans, Noto Sans JP, sans-serif"),
                     insidetextanchor="middle",
                     cliponaxis=False,
                 ))
@@ -2605,7 +2805,7 @@ elif pidx == PAGE_MARKET_RANK:
                         tickfont=dict(size=11),
                     ),
                     plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                    font=dict(color="white", size=11),
+                    font=dict(color="white", size=11, family="DM Sans, Noto Sans JP, sans-serif"),
                     height=max(220, len(c_values) * 36),
                     bargap=0.2,
                     margin=dict(t=8, b=36, l=_lm, r=80),
@@ -2629,7 +2829,7 @@ elif pidx == PAGE_MARKET_RANK:
                         xanchor="right", yanchor="bottom",
                     )
 
-                st.markdown("**🔴 上位5 ／ 🟢 下位5**")
+                st.markdown("**▲ 上位5 ／ ▼ 下位5**")
                 st.plotly_chart(_fig_m, use_container_width=True, config=PLOT_CONFIG)
 
                 # ── 構成銘柄の詳細表 ──
@@ -2670,10 +2870,10 @@ elif pidx == PAGE_MARKET_RANK:
                         "コード":       _cod,
                         "銘柄名":       r["銘柄名"],
                         "株価":         r["株価"],
-                        "騰落率":       f"🔴 +{r['騰落率']}%" if r["騰落率"]>0 else f"🟢 {r['騰落率']}%",
+                        "騰落率":       f"▲ +{r['騰落率']}%" if r["騰落率"]>0 else f"▼ {r['騰落率']}%",
                         "寄与度":       f"{'▲' if _ctb>0 else '▼'}{abs(_ctb):.2f}%",
                         "寄与度順位":   f"{_contrib_rank_map[_cod]}位",
-                        "出来高増減":   f"📈 +{_vc}%" if _vc and _vc>0 else f"📉 {_vc}%" if _vc is not None else "N/A",
+                        "出来高増減":   f"▲ +{_vc}%" if _vc and _vc>0 else f"▼ {_vc}%" if _vc is not None else "N/A",
                         "出来高":       r["出来高"],
                         "出来高順位":   f"{_vol_rank_map[_cod]}位",
                         "売買代金":     r["売買代金"],
@@ -2773,7 +2973,7 @@ elif pidx == PAGE_THEME_DETAIL:
         v_val = result["出来高増減(%)"]
         col_h1, col_h2, col_h3 = st.columns(3)
         col_h1.metric("平均騰落率", f"{'🔴 +' if c_val>0 else '🟢 '}{c_val}%")
-        col_h2.metric("出来高増減(%)", f"{'📈 +' if v_val>0 else '📉 '}{v_val}%")
+        col_h2.metric("出来高増減(%)", f"{'▲ +' if v_val>0 else '▼ '}{v_val}%")
         col_h3.metric("銘柄数", f"{len(stocks_d)}銘柄")
 
         st.markdown("---")
@@ -3330,9 +3530,9 @@ st.markdown("""
     </svg>
     <div style="line-height:1.1;">
       <div style="display:flex;align-items:baseline;gap:0;">
-        <span style="font-family:'Arial Black',sans-serif;font-size:22px;font-weight:900;color:#e63030;letter-spacing:0.03em;">Stock</span>
-        <span style="font-family:'Arial Black',sans-serif;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:0.03em;">Wave</span>
-        <span style="font-family:'Arial Black',sans-serif;font-size:13px;font-weight:900;color:#e63030;margin-left:3px;letter-spacing:0.1em;">JP</span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:22px;font-weight:700;color:#e63030;letter-spacing:-0.01em;">Stock</span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">Wave</span>
+        <span style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:#e63030;margin-left:3px;letter-spacing:0.05em;">JP</span>
       </div>
       <div style="font-size:9px;letter-spacing:0.45em;color:#3a4560;font-weight:700;margin-top:2px;">株　式　波　動</div>
     </div>
