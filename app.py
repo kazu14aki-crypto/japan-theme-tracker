@@ -17,7 +17,7 @@ st.set_page_config(
     page_title="StockWaveJP",
     page_icon=_favicon,
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto",
     menu_items={}
 )
 
@@ -32,6 +32,8 @@ header[data-testid="stHeader"] {
     background: #0a0c14 !important;
     border-bottom: 1px solid #1a1e30 !important;
     height: 48px !important;
+    display: flex !important;
+    visibility: visible !important;
 }
 /* ヘッダー内にロゴをCSSで挿入 */
 header[data-testid="stHeader"]::before {
@@ -467,15 +469,20 @@ hr {{
 }}
 
 /* ── ツールバー・デプロイボタン・フッター等を非表示 ── */
-header[data-testid="stHeader"] .stToolbar {{ display: none !important; }}
-[data-testid="stToolbar"] {{ display: none !important; }}
+/* サイドバー開閉ボタン(≡)は残し、それ以外のツールバーを非表示 */
 [data-testid="stDecoration"] {{ display: none !important; }}
 [data-testid="stDeployButton"] {{ display: none !important; }}
 #MainMenu {{ display: none !important; }}
 footer {{ display: none !important; }}
-.stActionButton {{ display: none !important; }}
 button[title="View fullscreen"] {{ display: none !important; }}
-button[data-testid="baseButton-header"] {{ display: none !important; }}
+/* Share・スター・編集・GitHubボタンを非表示（開閉ボタンは除外） */
+[data-testid="stToolbar"] > *:not([data-testid="stSidebarNavToggleButton"]) {{
+    display: none !important;
+}}
+/* PC版ツールバーの右側ボタン群を非表示 */
+[data-testid="stToolbarActions"] {{ display: none !important; }}
+header[data-testid="stHeader"] a {{ display: none !important; }}
+header[data-testid="stHeader"] [data-testid="stActionButton"] {{ display: none !important; }}
 </style>
 """, unsafe_allow_html=True)
 
