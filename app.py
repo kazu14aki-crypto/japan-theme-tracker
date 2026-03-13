@@ -1439,8 +1439,8 @@ if pidx == PAGE_THEME_LIST:
     # ══ メニュータイトル ══
     st.subheader("📊 テーマ一覧")
 
-    # ── 期間・テーマ数・トグルを1行に ──
-    _col_period, _col_count, _col_sp, _col_toggle = st.columns([2, 2, 1, 2])
+    # ── 期間・トグルを1行に（テーマ数タブ削除）──
+    _col_period, _col_sp, _col_toggle = st.columns([2, 2, 2])
     period_opts   = get_period_options()
     period_labels = list(period_opts.keys())
     current_val   = st.session_state.get("selected_period_val", "1mo")
@@ -1454,8 +1454,7 @@ if pidx == PAGE_THEME_LIST:
         )
     st.session_state["selected_period_val"] = period_opts[selected]
     period = period_opts[selected]
-    with _col_count:
-        display_count = st.selectbox("📊 テーマ数", [5, 10, 15, 25, 99], index=0)
+    display_count = 5  # TOP5固定（全テーマは別セクションで表示）
     with _col_toggle:
         st.markdown('<div class="toggle-wrap" style="padding-top:22px;">', unsafe_allow_html=True)
         _toggle_val = st.radio(
@@ -3060,9 +3059,14 @@ elif pidx == PAGE_DISCLAIMER:
         ("🔒 個人情報・プライバシー",
          "本ツールはユーザーの個人情報を収集・保存しません。"
          "お気に入り・カスタムテーマ等のデータはブラウザのセッション内にのみ保存され、サーバーには送信されません。"),
-        ("📝 著作権・利用条件",
-         "本ツールのソースコードは GitHub にて公開しています。非商用・個人利用の範囲で自由にご利用いただけます。"
-         "商用利用・再配布の際は stockwavejp.com よりお問い合わせください。"),
+        ("⚠️ 著作権・禁止事項",
+         "本ツール（StockWaveJP）のコード・デザイン・データ構成は著作権により保護されています。\n"
+         "以下の行為を固く禁じます。\n"
+         "・商用利用（広告収入・有料サービス・業務利用等を含む）\n"
+         "・無断複製・転載・再配布・改変して公開する行為\n"
+         "・本ツールを利用した二次的サービスの提供\n"
+         "個人の情報収集・学習目的での閲覧は自由です。\n"
+         "利用に関するお問い合わせは stockwavejp.com よりご連絡ください。"),
     ]
     for title, body in _sections:
         st.markdown(f"""
