@@ -964,8 +964,16 @@ def _fetch_single_stock(args):
         if len(df) < 2: return None
         target_df = get_target_df(df, period)
         if len(target_df) < 2: return None
+
+        # ── 異常データチェック（株式分割未調整・データ破損対策）──
+        _cl = target_df["Close"]
+        if (_cl <= 0).any() or _cl.isna().any(): return None
+        _daily_ratio = _cl.pct_change().abs().dropna()
+        if (_daily_ratio > 49).any(): return None  # 隣接日比50倍超は異常
+
         change = calc_change(target_df)
         if change is None: return None
+        if abs(change) > 500: return None  # ±500%超の騰落率は除外
 
         half = max(len(target_df)//2, 1)
         rv = target_df["Volume"].tail(half).mean()
@@ -2360,21 +2368,45 @@ elif pidx == PAGE_COMPARE:
                         if len(df) < 2: continue
                         target_df = get_target_df(df, period)
                         if len(target_df) < 2: continue
+
+                        # ── 異常データチェック ──
+                        _cl = target_df["Close"]
+                        # 株価が0以下・NaNを含む場合はスキップ
+                        if (_cl <= 0).any() or _cl.isna().any(): continue
+                        # 隣接日比が50倍超（株式分割未調整等）の場合はスキップ
+                        _daily_ratio = _cl.pct_change().abs().dropna()
+                        if (_daily_ratio > 49).any(): continue
+
                         # TZを除去して日付のみに正規化
                         _idx = target_df.index
                         if hasattr(_idx, "tz") and _idx.tz is not None:
                             _idx = _idx.tz_localize(None)
                         _idx = pd.DatetimeIndex([d.normalize() for d in _idx])
-                        _close = pd.Series(target_df["Close"].values, index=_idx)
+                        _close = pd.Series(_cl.values, index=_idx)
+
                         # 各銘柄を基準日=0%に正規化
                         _cum = (_close / _close.iloc[0] - 1) * 100
+
+                        # 累積リターンが±500%超の銘柄は外れ値として除外
+                        if _cum.abs().max() > 500: continue
+
                         _series_list.append(_cum)
                     except: pass
+
                 if _series_list:
-                    # 全銘柄をDataFrameに結合し、日付ごとに平均（欠損は前値補完）
+                    # 全銘柄をDataFrameに結合し、日付ごとに中央値（外れ値に強い）で集計
                     _df_all = pd.concat(_series_list, axis=1)
                     _df_all = _df_all.sort_index().ffill()
-                    _avg = _df_all.mean(axis=1)
+                    # 外れ値に強い平均：各日でIQR外の値を除外してから平均
+                    def _robust_mean(row):
+                        v = row.dropna()
+                        if len(v) == 0: return np.nan
+                        if len(v) <= 3: return v.mean()
+                        q1, q3 = v.quantile(0.25), v.quantile(0.75)
+                        iqr = q3 - q1
+                        filtered = v[(v >= q1 - 3*iqr) & (v <= q3 + 3*iqr)]
+                        return filtered.mean() if len(filtered) > 0 else v.median()
+                    _avg = _df_all.apply(_robust_mean, axis=1)
                     fig_comp.add_trace(go.Scatter(
                         x=_avg.index, y=_avg.round(2).values,
                         mode="lines", name=theme_name, line=dict(width=2)
