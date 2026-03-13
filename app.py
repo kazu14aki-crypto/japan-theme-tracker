@@ -1055,7 +1055,12 @@ def fetch_theme_trend(theme_keys, period="1y"):
             if df is None or len(df) < 2:
                 return None
             df.index = df.index.tz_localize(None)
-            return df["Close"]
+            cl = df["Close"]
+            # ── 異常データチェック ──
+            if (cl <= 0).any() or cl.isna().any(): return None
+            daily_ratio = cl.pct_change().abs().dropna()
+            if (daily_ratio > 49).any(): return None  # 隣接日50倍超はスキップ
+            return cl
         except:
             return None
 
@@ -1071,15 +1076,26 @@ def fetch_theme_trend(theme_keys, period="1y"):
             for fut in as_completed(futs):
                 s = fut.result()
                 if s is not None and len(s) > 1:
-                    # 最初の値を基準(=0%)として累積騰落率に変換
                     base = s.iloc[0]
                     if base and base != 0:
-                        series_list.append((s / base - 1) * 100)
+                        cum = (s / base - 1) * 100
+                        # 累積±500%超の銘柄は外れ値として除外
+                        if cum.abs().max() > 500: continue
+                        series_list.append(cum)
         if not series_list:
             continue
-        # 全銘柄を日次で平均（日付を共通インデックスに揃える）
-        combined = pd.concat(series_list, axis=1)
-        trend_data[theme_name] = combined.mean(axis=1).round(2)
+        # 全銘柄を日次で結合
+        combined = pd.concat(series_list, axis=1).sort_index().ffill()
+        # IQR外れ値除去ロバスト平均（列方向）
+        def _robust_row(row):
+            v = row.dropna()
+            if len(v) == 0: return np.nan
+            if len(v) <= 3: return v.mean()
+            q1, q3 = v.quantile(0.25), v.quantile(0.75)
+            iqr = q3 - q1
+            f = v[(v >= q1 - 3*iqr) & (v <= q3 + 3*iqr)]
+            return f.mean() if len(f) > 0 else v.median()
+        trend_data[theme_name] = combined.apply(_robust_row, axis=1).round(2)
 
     return trend_data
 
