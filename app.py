@@ -53,7 +53,7 @@ header[data-testid="stHeader"] {
     visibility: visible !important;
     position: relative !important;
 }
-/* ヘッダー内にロゴをCSSで挿入（中央配置） */
+/* ヘッダー内にロゴをCSSで挿入（左端） */
 header[data-testid="stHeader"]::before {
     content: "StockWaveJP";
     font-family: 'DM Sans', sans-serif;
@@ -62,12 +62,12 @@ header[data-testid="stHeader"]::before {
     letter-spacing: -0.01em;
     color: #ffffff;
     position: absolute;
-    left: 50%;
+    left: 16px;
     top: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateY(-50%);
     pointer-events: none;
 }
-/* サイドバー開閉ボタンを右端に固定 */
+/* サイドバー開閉ボタンを右端に固定（タイトルと重ならない） */
 [data-testid="stSidebarCollapsedControl"] {
     position: fixed !important;
     top: 8px !important;
@@ -597,11 +597,11 @@ div[data-testid="stSidebar"] div.stButton > button {{
     background: #1a1e30 !important;
     border-radius: 6px !important;
 }}
-/* スマホ：ヘッダーロゴを中央に */
+/* スマホ：ヘッダーロゴは左端のまま */
 @media (max-width: 640px) {{
     header[data-testid="stHeader"]::before {{
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
+        left: 16px !important;
+        transform: translateY(-50%) !important;
     }}
 }}
 /* ── ツールバー・フッター等を非表示 ── */
