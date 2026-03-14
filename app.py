@@ -44,16 +44,19 @@ button, label, input, select, textarea,
     letter-spacing: -0.03em !important;
 }
 
-/* Streamlitデフォルトヘッダーバーを活用してロゴを表示 */
+/* ── Streamlitヘッダーバー ── */
 header[data-testid="stHeader"] {
     background: #0a0c14 !important;
     border-bottom: 1px solid #1a1e30 !important;
     height: 48px !important;
     display: flex !important;
+    align-items: center !important;
     visibility: visible !important;
-    position: relative !important;
+    position: fixed !important;
+    top: 0 !important; left: 0 !important; right: 0 !important;
+    z-index: 1000 !important;
 }
-/* ヘッダー内にロゴをCSSで挿入（左端） */
+/* ロゴ（左端） */
 header[data-testid="stHeader"]::before {
     content: "StockWaveJP";
     font-family: 'DM Sans', sans-serif;
@@ -66,22 +69,35 @@ header[data-testid="stHeader"]::before {
     top: 50%;
     transform: translateY(-50%);
     pointer-events: none;
+    z-index: 1;
 }
-/* サイドバー開閉ボタンを右端に固定（タイトルと重ならない） */
+/* ヘッダー内の既存要素を右端に */
+header[data-testid="stHeader"] > div {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    padding-right: 8px !important;
+}
+/* サイドバー開閉ボタン：右端・ヘッダー内に収める */
 [data-testid="stSidebarCollapsedControl"] {
     position: fixed !important;
-    top: 8px !important;
-    right: 12px !important;
+    top: 6px !important;
+    right: 10px !important;
     left: auto !important;
-    z-index: 999 !important;
-}
-/* ヘッダー内ツールバーを右端に寄せる */
-header[data-testid="stHeader"] > div {
-    justify-content: flex-end !important;
+    z-index: 1100 !important;
+    background: rgba(255,255,255,0.06) !important;
+    border-radius: 6px !important;
+    border: 1px solid #2a2e40 !important;
 }
 /* ヘッダー分のトップ余白確保 */
 .block-container {
     margin-top: 0 !important;
+    padding-top: 8px !important;
+}
+/* メインコンテンツをヘッダー分下げる */
+[data-testid="stAppViewContainer"] {
+    padding-top: 48px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -587,21 +603,37 @@ div[data-testid="stSidebar"] div.stButton > button {{
     text-transform: uppercase !important;
     color: {_c['text_secondary']} !important;
 }}
-/* ── サイドバー開閉ボタンを右端に固定（PC・スマホ共通） ── */
+/* ── サイドバー開閉ボタン（右端固定・PC/スマホ共通） ── */
 [data-testid="stSidebarCollapsedControl"] {{
     position: fixed !important;
-    top: 8px !important;
-    right: 12px !important;
+    top: 6px !important;
+    right: 10px !important;
     left: auto !important;
-    z-index: 9999 !important;
-    background: #1a1e30 !important;
+    z-index: 1100 !important;
+    background: rgba(255,255,255,0.06) !important;
     border-radius: 6px !important;
+    border: 1px solid #2a2e40 !important;
 }}
-/* スマホ：ヘッダーロゴは左端のまま */
+/* サイドバー内の閉じるボタン（✕）を右上に */
+[data-testid="stSidebar"] [data-testid="stSidebarNavItems"] {{
+    padding-top: 0 !important;
+}}
+button[data-testid="stBaseButton-headerNoPadding"],
+[data-testid="stSidebarNavCollapseIcon"] {{
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+}}
+/* スマホ：ロゴは左端のまま */
 @media (max-width: 640px) {{
     header[data-testid="stHeader"]::before {{
         left: 16px !important;
         transform: translateY(-50%) !important;
+    }}
+    /* スマホ：サイドバー開閉ボタンもヘッダー右端 */
+    [data-testid="stSidebarCollapsedControl"] {{
+        top: 6px !important;
+        right: 10px !important;
     }}
 }}
 /* ── ツールバー・フッター等を非表示 ── */
@@ -1511,6 +1543,17 @@ section[data-testid="stSidebar"] > div:first-child {
     padding: 8px 2px 0 2px;
     margin-top: 6px;
     border-top: 1px solid #1a1e30;
+}
+/* サイドバー内のStreamlit標準閉じるボタンを右上に移動 */
+[data-testid="stSidebar"] > div:first-child > div:first-child > div:first-child button {
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    z-index: 200 !important;
+    background: rgba(255,255,255,0.05) !important;
+    border: 1px solid #2a2e40 !important;
+    border-radius: 6px !important;
+    color: #8090a8 !important;
 }
 </style>
 <div id="swjp-sidebar-logo">
