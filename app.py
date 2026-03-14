@@ -153,20 +153,27 @@ _stc.html("""
     }
 })();
 
-// ── ヘッダー内の不要ボタンをDOMから直接削除 ──
-(function removeHeaderButtons() {
+// ── ヘッダー内の keyboard_shortcuts ボタンのみ削除（サイドバー開閉ボタンは残す）──
+(function removeKeyboardShortcutButton() {
     function cleanup() {
-        const header = window.parent.document.querySelector('header[data-testid="stHeader"]');
-        if (!header) return;
-        // ボタン要素をすべて取得して削除
-        const buttons = header.querySelectorAll('button');
-        buttons.forEach(btn => { btn.style.display = 'none'; });
-        // SVGアイコンボタンも削除
-        const kindHeader = window.parent.document.querySelectorAll('[kind="header"]');
-        kindHeader.forEach(el => { el.style.display = 'none'; });
+        const doc = window.parent.document;
+        // aria-label に "keyboard" または "shortcuts" を含むボタンのみ非表示
+        doc.querySelectorAll('button').forEach(btn => {
+            const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+            const title = (btn.getAttribute('title') || '').toLowerCase();
+            if (label.includes('keyboard') || label.includes('shortcut')
+                || title.includes('keyboard') || title.includes('shortcut')) {
+                btn.style.display = 'none';
+            }
+        });
+        // stToolbarActions 配下のボタン（キーボードショートカット等）を非表示
+        // ただし data-testid="stSidebarCollapsedControl" は除外
+        const toolbar = doc.querySelector('[data-testid="stToolbarActions"]');
+        if (toolbar) toolbar.style.display = 'none';
+        const statusWidget = doc.querySelector('[data-testid="stStatusWidget"]');
+        if (statusWidget) statusWidget.style.display = 'none';
     }
     cleanup();
-    // Streamlit再レンダリング後も対応
     setTimeout(cleanup, 500);
     setTimeout(cleanup, 1500);
     const observer = new MutationObserver(cleanup);
@@ -577,21 +584,12 @@ div[data-testid="stSidebar"] div.stButton > button {{
 footer {{ display: none !important; }}
 button[title="View fullscreen"] {{ display: none !important; }}
 [data-testid="stToolbarActions"] {{ display: none !important; }}
-/* ヘッダー内の全ボタン・アイコンを非表示（keyboard_shortcutsボタン等） */
-header[data-testid="stHeader"] button {{ display: none !important; }}
-header[data-testid="stHeader"] svg {{ display: none !important; }}
-[data-testid="stToolbar"] {{ display: none !important; }}
 [data-testid="stStatusWidget"] {{ display: none !important; }}
-[data-testid="stHeaderActionElements"] {{ display: none !important; }}
-[kind="header"] {{ display: none !important; }}
-/* Material Iconフォントのボタン（keyboard_double_arrow等）を非表示 */
-button[data-testid="baseButton-header"] {{ display: none !important; }}
+/* keyboard_shortcutsボタンを非表示（aria-labelで特定） */
 button[aria-label*="keyboard"] {{ display: none !important; }}
-button[aria-label*="shortcuts"] {{ display: none !important; }}
-button[aria-label*="sidebar"] {{ display: none !important; }}
-/* ヘッダー右側エリア全体 */
-header[data-testid="stHeader"] > div > div {{ display: none !important; }}
-/* ただしStreamlit内部の必須要素は例外として残す */
+button[aria-label*="shortcut"] {{ display: none !important; }}
+button[title*="keyboard"] {{ display: none !important; }}
+/* ヘッダー内ツールバーを右端に寄せる（サイドバーボタンは残す） */
 header[data-testid="stHeader"] > div {{ justify-content: flex-end !important; }}
 header[data-testid="stHeader"] a {{ display: none !important; }}
 </style>
